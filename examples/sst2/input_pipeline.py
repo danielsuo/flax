@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """SST-2 input pipeline."""
 
 # pylint: disable=too-many-arguments,import-error,too-many-instance-attributes,too-many-locals
@@ -23,6 +22,7 @@ from absl import logging
 import numpy as np
 import tensorflow.compat.v2 as tf
 import tensorflow_datasets as tfds
+
 
 def build_vocab(datasets: Sequence[tf.data.Dataset],
                 special_tokens: Sequence[Text] = (b'<pad>', b'<unk>', b'<s>', b'</s>'),
@@ -80,22 +80,7 @@ def get_shuffled_batches(dataset: tf.data.Dataset,
 
   # `padded_shapes` says what kind of shapes to expect: [] means a scalar, [-1]
   # means a vector of variable length, and [1] means a vector of size 1.
-  return dataset.shuffle(
-      num_examples, seed=seed, reshuffle_each_iteration=True).padded_batch(
-          batch_size,
-          padded_shapes={
-              'idx': [],
-              'sentence': [-1],
-              'label': [1],
-              'length': []
-          },
-          drop_remainder=True).prefetch(tf.data.experimental.AUTOTUNE)
-
-
-def get_batches(dataset: tf.data.Dataset,
-                batch_size: int = 64) -> tf.data.Dataset:
-  """Returns a Dataset that consists of padded batches when iterated over."""
-  return dataset.padded_batch(
+  return dataset.shuffle(num_examples, seed=seed, reshuffle_each_iteration=True).padded_batch(
       batch_size,
       padded_shapes={
           'idx': [],
@@ -103,11 +88,24 @@ def get_batches(dataset: tf.data.Dataset,
           'label': [1],
           'length': []
       },
-      drop_remainder=False).prefetch(tf.data.experimental.AUTOTUNE)
+      drop_remainder=True).prefetch(tf.data.experimental.AUTOTUNE)
+
+
+def get_batches(dataset: tf.data.Dataset, batch_size: int = 64) -> tf.data.Dataset:
+  """Returns a Dataset that consists of padded batches when iterated over."""
+  return dataset.padded_batch(batch_size,
+                              padded_shapes={
+                                  'idx': [],
+                                  'sentence': [-1],
+                                  'label': [1],
+                                  'length': []
+                              },
+                              drop_remainder=False).prefetch(tf.data.experimental.AUTOTUNE)
 
 
 class SST2DataSource:
   """Provides SST-2 data as pre-processed batches, a vocab, and embeddings."""
+
   # pylint: disable=too-few-public-methods
 
   def __init__(self, min_freq: int = 0):
@@ -121,7 +119,7 @@ class SST2DataSource:
     logging.info('Data sample: %s', next(tfds.as_numpy(train_raw.skip(4))))
 
     # Get a vocabulary and a corresponding GloVe word embedding matrix.
-    vocab = build_vocab((train_raw,), min_freq=min_freq)
+    vocab = build_vocab((train_raw, ), min_freq=min_freq)
 
     unk_idx = vocab[b'<unk>']
     bos_idx = vocab[b'<s>']
@@ -151,8 +149,7 @@ class SST2DataSource:
       return tf.concat(([bos_idx], tf.concat((sequence, [eos_idx]), 0)), 0)
 
     def preprocess_example(example: Dict[Text, tf.Tensor]):
-      example['sentence'] = tf_wrap_sequence(
-          tf_encode(tf_tokenize(example['sentence'])))
+      example['sentence'] = tf_wrap_sequence(tf_encode(tf_tokenize(example['sentence'])))
       example['label'] = [example['label']]
       example['length'] = tf.shape(example['sentence'])[0]
       return example

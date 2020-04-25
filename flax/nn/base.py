@@ -32,7 +32,6 @@ from flax import struct
 import jax
 from jax import random
 
-
 _module_stack = utils.CallStack()
 _module_output_trackers = utils.CallStack()
 _state_stack = utils.CallStack()
@@ -72,10 +71,7 @@ class _ModuleFrame:
   creating additional sub-parameters. TODO: Consider elaborating on this
   last paragraph.
   """
-
-  def __init__(self, name,
-               parent=None, params=None, rng=None,
-               transparent=False):
+  def __init__(self, name, parent=None, params=None, rng=None, transparent=False):
     if params is None:
       params = {}
     self.parent = parent
@@ -177,8 +173,10 @@ def module_method(fn):
   # is defined on.
   def wrapper(cls):
     if cls not in cache:
+
       class ModuleMethod(cls):
         apply = fn
+
       ModuleMethod.__name__ = fn.__name__
       ModuleMethod.__qualname__ = f'{cls.__qualname__}.{fn.__name__}'
       cache[cls] = ModuleMethod
@@ -191,22 +189,18 @@ def _fn_parameters(fn):
   return tuple(inspect.signature(fn).parameters.values())
 
 
-MODULE_CLASSMETHODS = [
-    'create', 'create_by_shape', 'init', 'init_by_shape', 'call', 'partial'
-]
+MODULE_CLASSMETHODS = ['create', 'create_by_shape', 'init', 'init_by_shape', 'call', 'partial']
 
 
 class _ModuleMeta(abc.ABCMeta):
   """Meta class for automatically setting the doc of Modules."""
-
   def __init__(cls, name, bases, attrs):
     super(_ModuleMeta, cls).__init__(name, bases, attrs)
     apply_fn = cls.apply
     apply_doc = apply_fn.__doc__
     cls.__doc__ = apply_doc
     apply_params = _fn_parameters(apply_fn)
-    cls.__signature__ = inspect.signature(cls).replace(
-        parameters=apply_params[1:])
+    cls.__signature__ = inspect.signature(cls).replace(parameters=apply_params[1:])
 
     if not bases:
       return  # skip method signature overides for Module class.
@@ -219,6 +213,7 @@ class _ModuleMeta(abc.ABCMeta):
       def wrapper(class_, *args, **kwargs):
         super_fn = getattr(super(cls, class_), name)
         return super_fn(*args, **kwargs)
+
       wrapper.__doc__ = f'''{orig_fn.__doc__}
 
       Apply docstring:
@@ -228,8 +223,7 @@ class _ModuleMeta(abc.ABCMeta):
       base_params = tuple(x for x in _fn_parameters(orig_fn)
                           if x.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD)
       new_params = base_params + apply_params[1:]
-      wrapper.__signature__ = inspect.signature(orig_fn).replace(
-          parameters=new_params)
+      wrapper.__signature__ = inspect.signature(orig_fn).replace(parameters=new_params)
       setattr(cls, name, classmethod(wrapper))
 
     for name in MODULE_CLASSMETHODS:
@@ -247,11 +241,9 @@ def _fold_in_str(rng, data):
 
 class Module(metaclass=_ModuleMeta):
   """Functional modules."""
-
   def __new__(cls, *args, name=None, **kwargs):
     if not _module_stack:
-      raise ValueError('A Module should only be instantiated directly inside'
-                       ' another module.')
+      raise ValueError('A Module should only be instantiated directly inside' ' another module.')
     parent = cls._get_construction_frame()
     apply_kwargs = cls._extend_kwargs(kwargs)
     if name is None:
@@ -267,11 +259,13 @@ class Module(metaclass=_ModuleMeta):
       parent.params[name] = params
     else:  # apply
       if name not in parent.params:
-        raise ValueError(f'No module named {name} was created during'
-                         ' initialization.')
+        raise ValueError(f'No module named {name} was created during' ' initialization.')
       params = parent.params[name]
       rng = None
-    frame = _ModuleFrame(name, parent=parent, rng=rng, params=params,
+    frame = _ModuleFrame(name,
+                         parent=parent,
+                         rng=rng,
+                         params=params,
                          transparent=cls._is_transparent())
     with cls._with_instance(frame) as instance:
       y = instance.apply(*args, **apply_kwargs)
@@ -293,8 +287,7 @@ class Module(metaclass=_ModuleMeta):
       A subclass of Module that shares parameters when called multiple times.
     """
     if not _module_stack:
-      raise ValueError(
-          'The shared module should be used during Module application')
+      raise ValueError('The shared module should be used during Module application')
 
     parent = _module_stack[-1]
     if name is None:
@@ -307,7 +300,6 @@ class Module(metaclass=_ModuleMeta):
 
     class SharedModule(partial_module):
       """Wraps a module to enable shared parameters."""
-
       @classmethod
       def _default_name(cls):
         return name
@@ -356,10 +348,8 @@ class Module(metaclass=_ModuleMeta):
     Returns:
       A subclass of Module which partially applies the given keyword arguments.
     """
-
     class PartialModule(class_):
       """Wraps a module with partial application."""
-
       @classmethod
       def _default_name(cls):
         if name is not None:
@@ -372,6 +362,7 @@ class Module(metaclass=_ModuleMeta):
         extended_kwargs = kwargs.copy()
         extended_kwargs.update(invoke_kwargs)
         return super()._extend_kwargs(extended_kwargs)
+
     # __doc__ is handled by the Module meta class
     PartialModule.__name__ = class_.__name__
     PartialModule.__qualname__ = class_.__qualname__
@@ -398,11 +389,11 @@ class Module(metaclass=_ModuleMeta):
     Returns:
       A pair consisting of the model output and an instance of Model
     """
-    warnings.warn("`create()` will be removed soon."
-                  " Use `init()` to initialize parameters and then explicitly"
-                  " create a `nn.Model` given the module and initialized"
-                  " parameters.",
-                  DeprecationWarning)
+    warnings.warn(
+        "`create()` will be removed soon."
+        " Use `init()` to initialize parameters and then explicitly"
+        " create a `nn.Model` given the module and initialized"
+        " parameters.", DeprecationWarning)
     y, params = cls.init(_rng, *args, name=name, **kwargs)
     model = Model(cls, params)
     return y, model
@@ -429,11 +420,11 @@ class Module(metaclass=_ModuleMeta):
     Returns:
       A pair consisting of the model output and an instance of Model
     """
-    warnings.warn("`create_by_shape()` will be removed soon."
-                  " Use `init_by_shape()` to initialize parameters and then"
-                  " explicitly create a `nn.Model` given the module and "
-                  " initialized parameters.",
-                  DeprecationWarning)
+    warnings.warn(
+        "`create_by_shape()` will be removed soon."
+        " Use `init_by_shape()` to initialize parameters and then"
+        " explicitly create a `nn.Model` given the module and "
+        " initialized parameters.", DeprecationWarning)
 
     y, params = cls.init_by_shape(_rng, input_specs, *args, name=name, **kwargs)
     model = Model(cls, params)
@@ -459,8 +450,7 @@ class Module(metaclass=_ModuleMeta):
     if name is None:
       name = cls._default_name()
 
-    frame = _ModuleFrame(name, rng=_rng, parent=parent,
-                         transparent=cls._is_transparent())
+    frame = _ModuleFrame(name, rng=_rng, parent=parent, transparent=cls._is_transparent())
     with cls._with_instance(frame) as instance:
       y = instance.apply(*args, **kwargs)
       _track_outputs(y)
@@ -501,6 +491,7 @@ class Module(metaclass=_ModuleMeta):
     def lazy_init(*inputs):
       def init_fn():
         return cls.init(_rng, *(inputs + args), name=name, **kwargs)
+
       if stochastic_rng is not None:
         # Create a new stochastic scope inside the lazy evalution
         # this way we can use a stochastic scope in combination
@@ -509,6 +500,7 @@ class Module(metaclass=_ModuleMeta):
           return init_fn()
       else:
         return init_fn()
+
     return jax_utils.partial_eval_by_shape(lazy_init, input_specs)
 
   @classmethod
@@ -532,8 +524,7 @@ class Module(metaclass=_ModuleMeta):
       parent = None
     if name is None:
       name = cls._default_name()
-    frame = _ModuleFrame(name, params=params, parent=parent,
-                         transparent=cls._is_transparent())
+    frame = _ModuleFrame(name, params=params, parent=parent, transparent=cls._is_transparent())
     with cls._with_instance(frame) as instance:
       y = instance.apply(*args, **kwargs)
       _track_outputs(y)
@@ -553,17 +544,15 @@ class Module(metaclass=_ModuleMeta):
     frame = self._frame
     if frame.is_init:
       if name in frame.params:
-        raise ValueError(
-            "Name '%s' was already used for another parameter." % name)
+        raise ValueError("Name '%s' was already used for another parameter." % name)
       key = _fold_in_str(frame.rng, name)
       frame.params[name] = initializer(key, shape)
     if name not in frame.params:
       raise ValueError("Parameter with name '%s' does not exist." % name)
     param = frame.params[name]
     if shape is not None and param.shape != shape:
-      raise ValueError(
-          'Existing shape {} differs from requested shape {}'.format(
-              param.shape, shape))
+      raise ValueError('Existing shape {} differs from requested shape {}'.format(
+          param.shape, shape))
     return param
 
   def get_param(self, name):
@@ -657,8 +646,7 @@ class Module(metaclass=_ModuleMeta):
     if name in parent.shared:
       # a module with this name already exists. Check validity of sharing
       if shared != parent.shared[name]:
-        raise ValueError(f'The name "{name}" is used for both a shared'
-                         ' and unshared module.')
+        raise ValueError(f'The name "{name}" is used for both a shared' ' and unshared module.')
       if not parent.shared[name]:
         raise ValueError(f'A module with named "{name}" already exists.')
     parent.shared[name] = shared
@@ -719,7 +707,8 @@ def module(fun):
   def apply(self, *args, **kwargs):
     del self  # unused
     return fun(*args, **kwargs)
-  return type(fun.__name__, (Module,), dict(apply=apply))
+
+  return type(fun.__name__, (Module, ), dict(apply=apply))
 
 
 # TODO(flax-dev) consider removing this...
@@ -728,7 +717,6 @@ class TransparentModule(Module):
 
   A transparent module can only have one parameter named '0'.
   """
-
   @classmethod
   def _pre_process_params(cls, params):
     return {'0': params}
@@ -754,7 +742,6 @@ class TruncatedModule(TransparentModule):
   See `Model.truncate_at` for a simple api to get the intermediate outputs of
   an existing Model.
   """
-
   def apply(self, *args, wrapped_module=None, truncate_path=None, **kwargs):
     """Apply the wrapped module and return some of its intermediate outputs.
 
@@ -769,13 +756,13 @@ class TruncatedModule(TransparentModule):
       The intermediate outputs specified by truncate_path.
     """
     if wrapped_module is None or truncate_path is None:
-      raise ValueError(
-          '`wrapped_module` and `truncate_path` are required keyword arguments')
+      raise ValueError('`wrapped_module` and `truncate_path` are required keyword arguments')
     with capture_module_outputs() as module_outputs:
       wrapped_module(*args, **kwargs, name='0')
 
     def lookup_output(path):
       return module_outputs[path]
+
     return jax.tree_map(lookup_output, truncate_path)
 
 
@@ -797,7 +784,6 @@ class ModuleState():
   ModuleState instances should not be created directly. See `Module.state` on
   how to create state variables inside modules.
   """
-
   def __init__(self, collection, name):
     self._collection = collection
     self._name = name
@@ -884,15 +870,13 @@ def is_stateful():
 
 def get_state():
   if not _state_stack:
-    raise ValueError('Use the flax.nn.stateful context manager to enable'
-                     ' stateful computations.')
+    raise ValueError('Use the flax.nn.stateful context manager to enable' ' stateful computations.')
   return _state_stack[-1]
 
 
 def _top_frame(call_name):
   if not _module_stack:
-    raise ValueError('%s should only be used inside a '
-                     'module\'s apply function.' % call_name)
+    raise ValueError('%s should only be used inside a ' 'module\'s apply function.' % call_name)
   return _module_stack[-1]
 
 
@@ -918,15 +902,17 @@ class Model:
       paths the outputs will be have the same structure where each path is
       replaced by the corresponding intermediate output.
     """
-    truncated_module_cls = TruncatedModule.partial(
-        wrapped_module=self.module, truncate_path=module_path)
+    truncated_module_cls = TruncatedModule.partial(wrapped_module=self.module,
+                                                   truncate_path=module_path)
     return self.replace(module=truncated_module_cls)
 
   def __getattr__(self, name):
     value = getattr(self.module, name)
     if inspect.isclass(value) and issubclass(value, Module):
+
       def wrapper(*args, **kwargs):
         return value.call(self.params, *args, **kwargs)
+
       return wrapper
     raise AttributeError(f'No attribute named "{name}".')
 
@@ -948,7 +934,6 @@ class Collection:
   Attributes:
     state: the initial state by default an empty collection is created.
   """
-
   def __init__(self, state=None):
     if state is None:
       state = {}
@@ -1095,6 +1080,7 @@ class Collection:
     else:
       return path
 
+
 def iterate_collection(collection):
   # jax iterates through pytrees for each argument/return value of a functional
   # transformations. When the collection is mutable we throw an error this way
@@ -1102,7 +1088,7 @@ def iterate_collection(collection):
   if collection._mutable:  # pylint: disable=protected-access
     raise ValueError('A mutable collection should not be transformed by Jax.')
   meta = (type(collection), collection._anchor)  # pylint: disable=protected-access
-  return (collection.state,), meta
+  return (collection.state, ), meta
 
 
 def collection_from_iterable(meta, state):
@@ -1111,10 +1097,9 @@ def collection_from_iterable(meta, state):
   coll._anchor = anchor  # pylint: disable=protected-access
   return coll
 
+
 # make sure a collection is traced.
-jax.tree_util.register_pytree_node(Collection,
-                                   iterate_collection,
-                                   collection_from_iterable)
+jax.tree_util.register_pytree_node(Collection, iterate_collection, collection_from_iterable)
 
 
 def _collection_state_dict(collection):
@@ -1125,5 +1110,5 @@ def _collection_from_state_dict(_, state):
   return Collection(state)
 
 
-serialization.register_serialization_state(
-    Collection, _collection_state_dict, _collection_from_state_dict)
+serialization.register_serialization_state(Collection, _collection_state_dict,
+                                           _collection_from_state_dict)

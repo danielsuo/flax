@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Sequence Tagging example.
 
 This script trains a Transformer on the Universal dependency dataset.
@@ -44,34 +43,27 @@ flags.DEFINE_string('model_dir', default='', help=('Directory for model data.'))
 
 flags.DEFINE_string('experiment', default='xpos', help=('Experiment name.'))
 
-flags.DEFINE_integer(
-    'batch_size', default=64, help=('Batch size for training.'))
+flags.DEFINE_integer('batch_size', default=64, help=('Batch size for training.'))
 
-flags.DEFINE_integer(
-    'eval_frequency',
-    default=100,
-    help=('Frequency of eval during training, e.g. every 1000 steps.'))
+flags.DEFINE_integer('eval_frequency',
+                     default=100,
+                     help=('Frequency of eval during training, e.g. every 1000 steps.'))
 
-flags.DEFINE_integer(
-    'num_train_steps', default=75000, help=('Number of train steps.'))
+flags.DEFINE_integer('num_train_steps', default=75000, help=('Number of train steps.'))
 
-flags.DEFINE_integer(
-    'num_eval_steps',
-    default=-1,
-    help=('Number of evaluation steps. If -1 use the whole evaluation set.'))
+flags.DEFINE_integer('num_eval_steps',
+                     default=-1,
+                     help=('Number of evaluation steps. If -1 use the whole evaluation set.'))
 
 flags.DEFINE_float('learning_rate', default=0.05, help=('Learning rate.'))
 
-flags.DEFINE_float(
-    'weight_decay',
-    default=1e-1,
-    help=('Decay factor for AdamW style weight decay.'))
+flags.DEFINE_float('weight_decay',
+                   default=1e-1,
+                   help=('Decay factor for AdamW style weight decay.'))
 
-flags.DEFINE_integer('max_length', default=256,
-                     help=('Maximum length of examples.'))
+flags.DEFINE_integer('max_length', default=256, help=('Maximum length of examples.'))
 
-flags.DEFINE_integer(
-    'random_seed', default=0, help=('Integer for PRNG random seed.'))
+flags.DEFINE_integer('random_seed', default=0, help=('Integer for PRNG random seed.'))
 
 flags.DEFINE_string('train', default='', help=('Path to training data.'))
 
@@ -87,24 +79,22 @@ def create_model(key, input_shape, model_kwargs):
 
 
 def create_optimizer(model, learning_rate):
-  optimizer_def = optim.Adam(
-      learning_rate,
-      beta1=0.9,
-      beta2=0.98,
-      eps=1e-9,
-      weight_decay=FLAGS.weight_decay)
+  optimizer_def = optim.Adam(learning_rate,
+                             beta1=0.9,
+                             beta2=0.98,
+                             eps=1e-9,
+                             weight_decay=FLAGS.weight_decay)
   optimizer = optimizer_def.create(model)
   optimizer = jax_utils.replicate(optimizer)
   return optimizer
 
 
-def create_learning_rate_scheduler(
-    factors='constant * linear_warmup * rsqrt_decay',
-    base_learning_rate=0.5,
-    warmup_steps=8000,
-    decay_factor=0.5,
-    steps_per_decay=20000,
-    steps_per_cycle=100000):
+def create_learning_rate_scheduler(factors='constant * linear_warmup * rsqrt_decay',
+                                   base_learning_rate=0.5,
+                                   warmup_steps=8000,
+                                   decay_factor=0.5,
+                                   steps_per_decay=20000,
+                                   steps_per_cycle=100000):
   """creates learning rate schedule.
 
   Interprets factors in the factors string which can consist of:
@@ -144,10 +134,8 @@ def create_learning_rate_scheduler(
       elif name == 'decay_every':
         ret *= (decay_factor**(step // steps_per_decay))
       elif name == 'cosine_decay':
-        progress = jnp.maximum(0.0,
-                               (step - warmup_steps) / float(steps_per_cycle))
-        ret *= jnp.maximum(0.0,
-                           0.5 * (1.0 + jnp.cos(jnp.pi * (progress % 1.0))))
+        progress = jnp.maximum(0.0, (step - warmup_steps) / float(steps_per_cycle))
+        ret *= jnp.maximum(0.0, 0.5 * (1.0 + jnp.cos(jnp.pi * (progress % 1.0))))
       else:
         raise ValueError('Unknown factor %s.' % name)
     return jnp.asarray(ret, dtype=jnp.float32)
@@ -297,22 +285,20 @@ def main(argv):
   vocabs = input_pipeline.create_vocabs(FLAGS.train)
   attributes_input = [input_pipeline.CoNLLAttributes.FORM]
   attributes_target = [input_pipeline.CoNLLAttributes.XPOS]
-  train_ds = input_pipeline.sentence_dataset_dict(
-      FLAGS.train,
-      vocabs,
-      attributes_input,
-      attributes_target,
-      batch_size=batch_size,
-      bucket_size=max_length)
+  train_ds = input_pipeline.sentence_dataset_dict(FLAGS.train,
+                                                  vocabs,
+                                                  attributes_input,
+                                                  attributes_target,
+                                                  batch_size=batch_size,
+                                                  bucket_size=max_length)
 
-  eval_ds = input_pipeline.sentence_dataset_dict(
-      FLAGS.dev,
-      vocabs,
-      attributes_input,
-      attributes_target,
-      batch_size=batch_size,
-      bucket_size=max_length,
-      repeat=1)
+  eval_ds = input_pipeline.sentence_dataset_dict(FLAGS.dev,
+                                                 vocabs,
+                                                 attributes_input,
+                                                 attributes_target,
+                                                 batch_size=batch_size,
+                                                 bucket_size=max_length,
+                                                 repeat=1)
   train_iter = iter(train_ds)
   bs = device_batch_size * jax.device_count()
 
@@ -333,12 +319,10 @@ def main(argv):
 
   optimizer = create_optimizer(model, learning_rate)
   del model  # don't keep a copy of the initial model
-  learning_rate_fn = create_learning_rate_scheduler(
-      base_learning_rate=learning_rate)
+  learning_rate_fn = create_learning_rate_scheduler(base_learning_rate=learning_rate)
 
-  p_train_step = jax.pmap(
-      functools.partial(train_step, learning_rate_fn=learning_rate_fn),
-      axis_name='batch')
+  p_train_step = jax.pmap(functools.partial(train_step, learning_rate_fn=learning_rate_fn),
+                          axis_name='batch')
   p_eval_step = jax.pmap(eval_step, axis_name='batch')
 
   # We init the first set of dropout PRNG keys, but update it afterwards inside
@@ -351,8 +335,7 @@ def main(argv):
   for step, batch in zip(range(num_train_steps), train_iter):
     batch = common_utils.shard(jax.tree_map(lambda x: x._numpy(), batch))  # pylint: disable=protected-access
 
-    optimizer, metrics, dropout_rngs = p_train_step(
-        optimizer, batch, dropout_rng=dropout_rngs)
+    optimizer, metrics, dropout_rngs = p_train_step(optimizer, batch, dropout_rng=dropout_rngs)
     metrics_all.append(metrics)
 
     if (step + 1) % eval_freq == 0:
@@ -388,8 +371,7 @@ def main(argv):
         cur_pred_batch_size = eval_batch['inputs'].shape[0]
         if cur_pred_batch_size != batch_size:
           logging.info('Uneven batch size %d.', cur_pred_batch_size)
-          eval_batch = jax.tree_map(
-              lambda x: pad_examples(x, batch_size), eval_batch)
+          eval_batch = jax.tree_map(lambda x: pad_examples(x, batch_size), eval_batch)
         eval_batch = common_utils.shard(eval_batch)
 
         metrics = p_eval_step(optimizer.target, eval_batch)
@@ -402,10 +384,9 @@ def main(argv):
           eval_metrics_sums)
 
       # Calculate (clipped) perplexity after averaging log-perplexities:
-      eval_summary['perplexity'] = jnp.clip(
-          jnp.exp(eval_summary['loss']), a_max=1.0e4)
-      logging.info('eval in step: %d, loss: %.4f, accuracy: %.4f', step,
-                   eval_summary['loss'], eval_summary['accuracy'])
+      eval_summary['perplexity'] = jnp.clip(jnp.exp(eval_summary['loss']), a_max=1.0e4)
+      logging.info('eval in step: %d, loss: %.4f, accuracy: %.4f', step, eval_summary['loss'],
+                   eval_summary['accuracy'])
 
       if best_dev_score < eval_summary['accuracy']:
         best_dev_score = eval_summary['accuracy']

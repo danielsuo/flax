@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Input pipeline for the lm1b dataset."""
 
 from absl import logging
@@ -19,7 +18,6 @@ import tensorflow.compat.v2 as tf
 import tensorflow_datasets as tfds
 
 tf.enable_v2_behavior()
-
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
@@ -67,16 +65,14 @@ def train_and_eval_dataset(dataset_name,
     eval_split = tfds.Split.VALIDATION
     if tfds.Split.VALIDATION not in splits:
       eval_split = tfds.Split.TEST
-  train = tfds.load(
-      name=dataset_name,
-      split=train_split,
-      data_dir=data_dir,
-      shuffle_files=train_shuffle_files)
-  valid = tfds.load(
-      name=dataset_name,
-      split=eval_split,
-      data_dir=data_dir,
-      shuffle_files=eval_shuffle_files)
+  train = tfds.load(name=dataset_name,
+                    split=train_split,
+                    data_dir=data_dir,
+                    shuffle_files=train_shuffle_files)
+  valid = tfds.load(name=dataset_name,
+                    split=eval_split,
+                    data_dir=data_dir,
+                    shuffle_files=eval_shuffle_files)
   keys = None
   if info.supervised_keys:
     keys = (info.supervised_keys[0], info.supervised_keys[1])
@@ -114,16 +110,13 @@ def bin_and_batch(dataset,
   if buckets is None:
     logging.info("Heuristically bucketing based on shapes of examples.")
     bucket_boundaries = [
-        target_bucket_length // 4, target_bucket_length // 2,
-        target_bucket_length, target_bucket_length * 2,
-        target_bucket_length * 4, target_bucket_length * 8,
+        target_bucket_length // 4, target_bucket_length // 2, target_bucket_length,
+        target_bucket_length * 2, target_bucket_length * 4, target_bucket_length * 8,
         target_bucket_length * 16
     ]
     bucket_batch_sizes = [
-        target_batch_size * 4, target_batch_size * 2,
-        target_batch_size, target_batch_size // 2,
-        target_batch_size // 4, target_batch_size // 8,
-        target_batch_size // 16
+        target_batch_size * 4, target_batch_size * 2, target_batch_size, target_batch_size // 2,
+        target_batch_size // 4, target_batch_size // 8, target_batch_size // 16
     ]
     # allow for different evaluation max-length bucket and batchsize
     if not training:
@@ -133,9 +126,7 @@ def bin_and_batch(dataset,
     # We will pad to boundaries which pads to bucket_boundary-1: add 1 here.
     bucket_boundaries = [b + 1 for b in bucket_boundaries]
     # Make batch sizes divisible by n_devices.
-    bucket_batch_sizes = [
-        max(b // n_devices, 1) * n_devices for b in bucket_batch_sizes
-    ]
+    bucket_batch_sizes = [max(b // n_devices, 1) * n_devices for b in bucket_batch_sizes]
     buckets = (bucket_boundaries, bucket_batch_sizes)
 
   logging.info("Bucketing with buckets %s.", str(buckets))
@@ -148,12 +139,11 @@ def bin_and_batch(dataset,
   # bucket_by_sequence_length expects a final dummy 1 batch_size
   batch_sizes.append(1)
   dataset = dataset.apply(
-      tf.data.experimental.bucket_by_sequence_length(
-          length_fn,
-          boundaries,
-          batch_sizes,
-          pad_to_bucket_boundary=True,
-          drop_remainder=drop_remainder))
+      tf.data.experimental.bucket_by_sequence_length(length_fn,
+                                                     boundaries,
+                                                     batch_sizes,
+                                                     pad_to_bucket_boundary=True,
+                                                     drop_remainder=drop_remainder))
   return dataset
 
 
@@ -195,7 +185,6 @@ def lm1b_preprocess(dataset,
 
   # Filter dataset by training or evaluation length cutoffs.
   def length_filter(max_len):
-
     def filter_fn(source):
       return tf.less(tf.shape(source)[0], max_len + 1)
 
@@ -213,14 +202,13 @@ def lm1b_preprocess(dataset,
       dataset = dataset.repeat()
 
   # Batch into padded, length-binned batches.
-  dataset = bin_and_batch(
-      dataset,
-      training,
-      n_devices,
-      target_batch_size=batch_size,
-      max_eval_length=max_eval_target_length,
-      buckets=buckets,
-      drop_remainder=drop_remainder)
+  dataset = bin_and_batch(dataset,
+                          training,
+                          n_devices,
+                          target_batch_size=batch_size,
+                          max_eval_length=max_eval_target_length,
+                          buckets=buckets,
+                          drop_remainder=drop_remainder)
 
   if prefetch_size:
     dataset = dataset.prefetch(prefetch_size)
@@ -262,14 +250,12 @@ def get_lm1b_datasets(n_devices,
     training tf dataset, evaluation tf dataset, and tfds features info
   """
   if batch_size % n_devices:
-    raise ValueError("Batch size %d isn't divided evenly by n_devices %d" %
-                     (batch_size, n_devices))
+    raise ValueError("Batch size %d isn't divided evenly by n_devices %d" % (batch_size, n_devices))
 
-  (train_data, eval_data, features_info, keys) = train_and_eval_dataset(
-      "lm1b/subwords32k",
-      data_dir,
-      train_shuffle_files=True,
-      eval_shuffle_files=False)
+  (train_data, eval_data, features_info, keys) = train_and_eval_dataset("lm1b/subwords32k",
+                                                                        data_dir,
+                                                                        train_shuffle_files=True,
+                                                                        eval_shuffle_files=False)
 
   # For sequence models, TFDS yields a (duplicated) feature dictionary.
   # We want to simplify things by mapping e.g.
@@ -289,25 +275,23 @@ def get_lm1b_datasets(n_devices,
     train_buckets = ([max_target_length + 1], [batch_size])
     eval_buckets = ([max_eval_target_length + 1], [batch_size])
 
-  train_batches = lm1b_preprocess(
-      train_data,
-      training=True,
-      n_devices=n_devices,
-      batch_size=batch_size,
-      max_target_length=max_target_length,
-      max_eval_target_length=max_eval_target_length,
-      buckets=train_buckets,
-      single_training_epoch=single_training_epoch,
-      drop_remainder=drop_remainder)
+  train_batches = lm1b_preprocess(train_data,
+                                  training=True,
+                                  n_devices=n_devices,
+                                  batch_size=batch_size,
+                                  max_target_length=max_target_length,
+                                  max_eval_target_length=max_eval_target_length,
+                                  buckets=train_buckets,
+                                  single_training_epoch=single_training_epoch,
+                                  drop_remainder=drop_remainder)
 
-  eval_batches = lm1b_preprocess(
-      eval_data,
-      training=False,
-      n_devices=n_devices,
-      max_target_length=max_target_length,
-      max_eval_target_length=max_eval_target_length,
-      batch_size=batch_size,
-      buckets=eval_buckets,
-      drop_remainder=drop_remainder)
+  eval_batches = lm1b_preprocess(eval_data,
+                                 training=False,
+                                 n_devices=n_devices,
+                                 max_target_length=max_target_length,
+                                 max_eval_target_length=max_eval_target_length,
+                                 batch_size=batch_size,
+                                 buckets=eval_buckets,
+                                 drop_remainder=drop_remainder)
 
   return train_batches, eval_batches, features_info

@@ -25,7 +25,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Flax implementation of PixelCNN++
 
 Based on the paper
@@ -76,8 +75,8 @@ def PixelCNNPP(images, depth=5, features=160, k=10, dropout_p=.5):
 
   # -------------------------- FORWARD PASS ----------------------------------
   down = shift_down(ConvDown_(images, kernel_size=(2, 3)))
-  down_right = (shift_down(ConvDown_(images, kernel_size=(1, 3)))
-                + shift_right(ConvDownRight_(images, kernel_size=(2, 1))))
+  down_right = (shift_down(ConvDown_(images, kernel_size=(1, 3))) +
+                shift_right(ConvDownRight_(images, kernel_size=(2, 1))))
 
   stack.append((down, down_right))
   for _ in range(depth):
@@ -113,8 +112,7 @@ def PixelCNNPP(images, depth=5, features=160, k=10, dropout_p=.5):
   for _ in range(depth):
     down_fwd, down_right_fwd = stack.pop()
     down = ResDown_(down, down_fwd)
-    down_right = ResDownRight_(
-        down_right, np.concatenate((down, down_right_fwd), -1))
+    down_right = ResDownRight_(down_right, np.concatenate((down, down_right_fwd), -1))
 
   # Resize spatial dims 8 x 8  -->  16 x 16
   down, down_right = DoubleDown(down), DoubleDownRight(down_right)
@@ -122,8 +120,7 @@ def PixelCNNPP(images, depth=5, features=160, k=10, dropout_p=.5):
   for _ in range(depth + 1):
     down_fwd, down_right_fwd = stack.pop()
     down = ResDown_(down, down_fwd)
-    down_right = ResDownRight_(
-        down_right, np.concatenate((down, down_right_fwd), -1))
+    down_right = ResDownRight_(down_right, np.concatenate((down, down_right_fwd), -1))
 
   # Resize spatial dims 16 x 16  -->  32 x 32
   down, down_right = DoubleDown(down), DoubleDownRight(down_right)
@@ -131,8 +128,7 @@ def PixelCNNPP(images, depth=5, features=160, k=10, dropout_p=.5):
   for _ in range(depth + 1):
     down_fwd, down_right_fwd = stack.pop()
     down = ResDown_(down, down_fwd)
-    down_right = ResDownRight_(
-        down_right, np.concatenate((down, down_right_fwd), -1))
+    down_right = ResDownRight_(down_right, np.concatenate((down, down_right_fwd), -1))
 
   assert len(stack) == 0
 
@@ -146,8 +142,10 @@ def centre(images):
   """Mapping from {0, 1, ..., 255} to {-1, -1 + 1/127.5, ..., 1}."""
   return images / 127.5 - 1
 
+
 def concat_elu(x):
   return nn.elu(np.concatenate((x, -x), -1))
+
 
 def spatial_pad(pad_vertical, pad_horizontal, operand):
   """
@@ -155,11 +153,11 @@ def spatial_pad(pad_vertical, pad_horizontal, operand):
   with zeros, without any interior padding.
   """
   zero = (0, 0, 0)
-  return lax.pad(operand, 0.,
-                 (zero, pad_vertical + (0,), pad_horizontal + (0,), zero))
+  return lax.pad(operand, 0., (zero, pad_vertical + (0, ), pad_horizontal + (0, ), zero))
 
-shift_down  = partial(spatial_pad, (1, -1), (0,  0))
-shift_right = partial(spatial_pad, (0,  0), (1, -1))
+
+shift_down = partial(spatial_pad, (1, -1), (0, 0))
+shift_right = partial(spatial_pad, (0, 0), (1, -1))
 
 
 # Weightnorm utils
@@ -169,6 +167,7 @@ def _l2_normalize(v):
   dimensions.
   """
   return v / np.sqrt(np.sum(np.square(v), (0, 1, 2)))
+
 
 def _make_kernel(direction, scale):
   """
@@ -192,13 +191,13 @@ class Conv(nn.Module):
             dtype=np.float32,
             precision=None):
     inputs = np.asarray(inputs, dtype)
-    strides = strides or (1,) * (inputs.ndim - 2)
+    strides = strides or (1, ) * (inputs.ndim - 2)
 
     if transpose:
-      conv = partial(lax.conv_transpose, strides=strides, padding=padding,
-                     precision=precision)
+      conv = partial(lax.conv_transpose, strides=strides, padding=padding, precision=precision)
     else:
-      conv = partial(lax.conv_general_dilated, window_strides=strides,
+      conv = partial(lax.conv_general_dilated,
+                     window_strides=strides,
                      padding=padding,
                      dimension_numbers=('NHWC', 'HWIO', 'NHWC'),
                      precision=precision)
@@ -212,7 +211,7 @@ class Conv(nn.Module):
       direction = nn.initializers.normal()(key, kernel_shape, dtype)
       unnormed_out = conv(inputs, _l2_normalize(direction))
       mean = np.mean(unnormed_out, (0, 1, 2))
-      var  = np.std (unnormed_out, (0, 1, 2))
+      var = np.std(unnormed_out, (0, 1, 2))
       return dict(direction=direction, scale=init_scale / var, bias=-mean / var)
 
     # We feed in None as a dummy shape argument to self.param.  Typically
@@ -222,8 +221,10 @@ class Conv(nn.Module):
     direction, scale, bias = [params[k] for k in ('direction', 'scale', 'bias')]
     return conv(inputs, _make_kernel(direction, scale)) + bias
 
+
 ConvTranspose = Conv.partial(transpose=True)
-ConvOneByOne  = Conv.partial(kernel_size=(1, 1))
+ConvOneByOne = Conv.partial(kernel_size=(1, 1))
+
 
 @nn.module
 def ConvDown(inputs, features, kernel_size=(2, 3), strides=None, **kwargs):
@@ -234,10 +235,12 @@ def ConvDown(inputs, features, kernel_size=(2, 3), strides=None, **kwargs):
 
   k_h, k_w = kernel_size
   assert k_w % 2 == 1, "kernel width must be odd."
-  padding = (( k_h - 1,        0),  # Vertical padding
-             (k_w // 2, k_w // 2))  # Horizontal padding
+  padding = (
+      (k_h - 1, 0),  # Vertical padding
+      (k_w // 2, k_w // 2))  # Horizontal padding
 
   return Conv(inputs, features, kernel_size, strides, padding, **kwargs)
+
 
 @nn.module
 def ConvDownRight(inputs, features, kernel_size=(2, 2), strides=None, **kwargs):
@@ -248,14 +251,15 @@ def ConvDownRight(inputs, features, kernel_size=(2, 2), strides=None, **kwargs):
   inputs = np.asarray(inputs, kwargs.get('dtype', np.float32))
 
   k_h, k_w = kernel_size
-  padding = ((k_h - 1, 0),  # Vertical padding
-             (k_w - 1, 0))  # Horizontal padding
+  padding = (
+      (k_h - 1, 0),  # Vertical padding
+      (k_w - 1, 0))  # Horizontal padding
 
   return Conv(inputs, features, kernel_size, strides, padding, **kwargs)
 
+
 @nn.module
-def ConvTransposeDown(
-    inputs, features, kernel_size=(2, 3), strides=(2, 2), **kwargs):
+def ConvTransposeDown(inputs, features, kernel_size=(2, 3), strides=(2, 2), **kwargs):
   """
   Transpose convolution with output slicing so that information cannot flow
   upwards.  Strides are (2, 2) by default which implies the spatial dimensions
@@ -264,12 +268,12 @@ def ConvTransposeDown(
   inputs = np.asarray(inputs, kwargs.get('dtype', np.float32))
   k_h, k_w = kernel_size
   out_h, out_w = onp.multiply(strides, inputs.shape[1:3])
-  return ConvTranspose(inputs, features, kernel_size, strides, **kwargs)[
-      :, :out_h, (k_w - 1) // 2:out_w + (k_w - 1) // 2, :]
+  return ConvTranspose(inputs, features, kernel_size, strides,
+                       **kwargs)[:, :out_h, (k_w - 1) // 2:out_w + (k_w - 1) // 2, :]
+
 
 @nn.module
-def ConvTransposeDownRight(
-    inputs, features, kernel_size=(2, 2), strides=(2, 2), **kwargs):
+def ConvTransposeDownRight(inputs, features, kernel_size=(2, 2), strides=(2, 2), **kwargs):
   """
   Transpose convolution with output slicing so that information cannot flow to
   the left or upwards. Strides are (2, 2) by default which implies the spatial
@@ -278,14 +282,12 @@ def ConvTransposeDownRight(
   inputs = np.asarray(inputs, kwargs.get('dtype', np.float32))
   k_h, k_w = kernel_size
   out_h, out_w = onp.multiply(strides, inputs.shape[1:3])
-  return ConvTranspose(inputs, features, kernel_size, strides, **kwargs)[
-      :, :out_h, :out_w]
+  return ConvTranspose(inputs, features, kernel_size, strides, **kwargs)[:, :out_h, :out_w]
 
 
 # Resnet modules
 @nn.module
-def GatedResnet(
-    inputs, aux=None, conv_module=None, nonlinearity=concat_elu, dropout_p=0.):
+def GatedResnet(inputs, aux=None, conv_module=None, nonlinearity=concat_elu, dropout_p=0.):
   c = inputs.shape[-1]
   y = conv_module(nonlinearity(inputs), c)
   if aux is not None:
@@ -298,6 +300,7 @@ def GatedResnet(
   # initialization.
   a, b = np.split(conv_module(y, 2 * c, init_scale=0.1), 2, axis=-1)
   return inputs + a * nn.sigmoid(b)
+
 
 ResDown = GatedResnet.partial(conv_module=ConvDown)
 ResDownRight = GatedResnet.partial(conv_module=ConvDownRight)
@@ -334,8 +337,7 @@ def conditional_params_from_outputs(theta, img):
   # Each of m, s and t must have shape (batch..., k, h, w, c), we effectively
   # spread the last dimension of theta out into c, k, 3, move the k dimension to
   # after batch and split along the 3 dimension.
-  m, s, t = np.moveaxis(np.reshape(theta, tuple(batch) + (h, w, c, k, 3)),
-                        (-2, -1), (-4, 0))
+  m, s, t = np.moveaxis(np.reshape(theta, tuple(batch) + (h, w, c, k, 3)), (-2, -1), (-4, 0))
   assert m.shape[-4:] == (k, h, w, c)
   t = np.tanh(t)
 
@@ -346,11 +348,12 @@ def conditional_params_from_outputs(theta, img):
   inv_scales = np.maximum(nn.softplus(s), 1e-7)
 
   # now condition the means for the last 2 channels (assuming c == 3)
-  mean_red   = m[..., 0]
+  mean_red = m[..., 0]
   mean_green = m[..., 1] + t[..., 0] * img[..., 0]
-  mean_blue  = m[..., 2] + t[..., 1] * img[..., 0] + t[..., 2] * img[..., 1]
+  mean_blue = m[..., 2] + t[..., 1] * img[..., 0] + t[..., 2] * img[..., 1]
   means = np.stack((mean_red, mean_green, mean_blue), axis=-1)
   return means, inv_scales, np.moveaxis(logit_weights, -1, -3)
+
 
 def logprob_from_conditional_params(images, means, inv_scales, logit_weights):
   """
@@ -376,6 +379,7 @@ def logprob_from_conditional_params(images, means, inv_scales, logit_weights):
   # Finally marginalize out mixture components and sum over pixels.
   return np.sum(logsumexp(log_mix_coeffs + logprobs, -3), (-2, -1))
 
+
 def discretized_logistic_logpmf(images, means, inv_scales):
   # Compute log-probabilities for each mixture component, pixel and channel by
   # computing the difference between the logistic cdf half a level above and
@@ -393,12 +397,14 @@ def discretized_logistic_logpmf(images, means, inv_scales):
 
   return np.where(images == 1, top, np.where(images == -1, bottom, mid))
 
+
 @custom_jvp
 def log1mexp(x):
   """Accurate computation of log(1 - exp(-x)) for x > 0. Method from
     https://cran.r-project.org/web/packages/Rmpfr/vignettes/log1mexp-note.pdf
   """
   return np.where(x > np.log(2), np.log1p(-np.exp(-x)), np.log(-np.expm1(-x)))
+
 
 # log1mexp produces NAN gradients for small inputs because the derivative of the
 # log1p(-exp(-eps)) branch has a zero divisor (1 + -np.exp(-eps)), and NANs in

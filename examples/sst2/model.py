@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """LSTM classifier model for SST-2."""
 
 import functools
@@ -29,20 +28,17 @@ import numpy as np
 
 
 @functools.partial(jax.jit, static_argnums=(0, 1, 2, 3))
-def create_model(seed: int, batch_size: int, max_len: int,
-                 model_kwargs: Dict[Text, Any]):
+def create_model(seed: int, batch_size: int, max_len: int, model_kwargs: Dict[Text, Any]):
   """Instantiates a new model."""
   module = TextClassifier.partial(train=False, **model_kwargs)
-  _, initial_params = module.init_by_shape(
-      jax.random.PRNGKey(seed),
-      [((batch_size, max_len), jnp.int32),
-       ((batch_size,), jnp.int32)])
+  _, initial_params = module.init_by_shape(jax.random.PRNGKey(seed),
+                                           [((batch_size, max_len), jnp.int32),
+                                            ((batch_size, ), jnp.int32)])
   model = nn.Model(module, initial_params)
   return model
 
 
-def word_dropout(inputs: jnp.ndarray, rate: float, unk_idx: int, 
-        deterministic: bool = False):
+def word_dropout(inputs: jnp.ndarray, rate: float, unk_idx: int, deterministic: bool = False):
   """Replaces a fraction (rate) of inputs with <unk>."""
   if deterministic or rate == 0.:
     return inputs
@@ -53,13 +49,11 @@ def word_dropout(inputs: jnp.ndarray, rate: float, unk_idx: int,
 
 class Embedding(nn.Module):
   """Embedding Module."""
-
   def apply(self,
             inputs: jnp.ndarray,
             num_embeddings: int,
             features: int,
-            emb_init: Callable[...,
-                               np.ndarray] = nn.initializers.normal(stddev=0.1),
+            emb_init: Callable[..., np.ndarray] = nn.initializers.normal(stddev=0.1),
             frozen: bool = False):
     # inputs.shape = <int64>[batch_size, seq_length]
     embedding = self.param('embedding', (num_embeddings, features), emb_init)
@@ -71,24 +65,20 @@ class Embedding(nn.Module):
 
 class LSTM(nn.Module):
   """LSTM encoder. Turns a sequence of vectors into a vector."""
-
-  def apply(self,
-            inputs: jnp.ndarray,
-            lengths: jnp.ndarray,
-            hidden_size: int = None):
+  def apply(self, inputs: jnp.ndarray, lengths: jnp.ndarray, hidden_size: int = None):
     # inputs.shape = <float32>[batch_size, seq_length, emb_size].
     # lengths.shape = <int64>[batch_size,]
     batch_size = inputs.shape[0]
-    carry = nn.LSTMCell.initialize_carry(
-        jax.random.PRNGKey(0), (batch_size,), hidden_size)
-    _, outputs = flax.jax_utils.scan_in_dim(
-        nn.LSTMCell.partial(name='lstm_cell'), carry, inputs, axis=1)
+    carry = nn.LSTMCell.initialize_carry(jax.random.PRNGKey(0), (batch_size, ), hidden_size)
+    _, outputs = flax.jax_utils.scan_in_dim(nn.LSTMCell.partial(name='lstm_cell'),
+                                            carry,
+                                            inputs,
+                                            axis=1)
     return outputs[jnp.arange(batch_size), jnp.maximum(0, lengths - 1), :]
 
 
 class MLP(nn.Module):
   """A 2-layer MLP."""
-
   def apply(self,
             inputs: jnp.ndarray,
             hidden_size: int = None,
@@ -107,7 +97,6 @@ class MLP(nn.Module):
 
 class LSTMClassifier(nn.Module):
   """LSTM classifier."""
-
   def apply(self,
             embed: jnp.ndarray,
             lengths: jnp.ndarray,
@@ -128,20 +117,18 @@ class LSTMClassifier(nn.Module):
       hidden = nn.dropout(hidden, rate=dropout)
 
     # Predict the class using an MLP.
-    logits = MLP(
-        hidden,
-        hidden_size=hidden_size,
-        output_size=output_size,
-        output_bias=False,
-        dropout=dropout,
-        name='mlp',
-        train=train)
+    logits = MLP(hidden,
+                 hidden_size=hidden_size,
+                 output_size=output_size,
+                 output_bias=False,
+                 dropout=dropout,
+                 name='mlp',
+                 train=train)
     return logits
 
 
 class TextClassifier(nn.Module):
   """Full classification model."""
-
   def apply(self,
             inputs: jnp.ndarray,
             lengths: jnp.ndarray,
@@ -158,15 +145,13 @@ class TextClassifier(nn.Module):
       inputs = word_dropout(inputs, rate=word_dropout_rate, unk_idx=unk_idx)
 
     # Embed the inputs.
-    embed = Embedding(
-        inputs,
-        vocab_size,
-        embedding_size,
-        emb_init=emb_init,
-        frozen=freeze_embeddings,
-        name='embed')
+    embed = Embedding(inputs,
+                      vocab_size,
+                      embedding_size,
+                      emb_init=emb_init,
+                      frozen=freeze_embeddings,
+                      name='embed')
 
     # Encode with LSTM and classify.
-    logits = LSTMClassifier(
-        embed, lengths, train=train, name='lstm_classifier', **kwargs)
+    logits = LSTMClassifier(embed, lengths, train=train, name='lstm_classifier', **kwargs)
     return logits

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Pooling modules."""
 
 from jax import lax
@@ -41,9 +40,9 @@ def pool(inputs, init, reduce_fn, window_shape, strides, padding):
   Returns:
     The output of the reduction for each window slice.
   """
-  strides = strides or (1,) * len(window_shape)
-  strides = (1,) + strides + (1,)
-  dims = (1,) + window_shape + (1,)
+  strides = strides or (1, ) * len(window_shape)
+  strides = (1, ) + strides + (1, )
+  dims = (1, ) + window_shape + (1, )
   return lax.reduce_window(inputs, init, reduce_fn, dims, strides, padding)
 
 

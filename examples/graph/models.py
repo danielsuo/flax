@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Graph neural network building blocks."""
 
 from flax import nn
@@ -25,7 +24,6 @@ class GraphConvBlock(nn.Module):
 
   Similar to https://arxiv.org/abs/1609.02907 but without normalization.
   """
-
   def apply(self, node_x, edge_x, sources, targets, features):
     """Computes forward pass.
 
@@ -65,7 +63,6 @@ class GraphConvBlock(nn.Module):
 
 class MLP(nn.Module):
   """Simple multi-layer perceptron (MLP) module."""
-
   def apply(self, x, features):
     x = nn.Dense(x, features=features)
     x = nn.relu(x)
@@ -78,7 +75,6 @@ class MessagePassingBlock(nn.Module):
 
   Similar to https://arxiv.org/abs/1704.01212.
   """
-
   def apply(self, node_x, edge_x, sources, targets, features):
     """Computes forward pass.
 

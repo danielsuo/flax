@@ -58,10 +58,8 @@ class RMSProp(OptimizerDef):
     """Apply per-parameter gradients"""
 
     assert hyper_params.learning_rate is not None, 'no learning rate provided.'
-    new_v = hyper_params.beta2 * state.v + (
-        1.0 - hyper_params.beta2) * jnp.square(grad)
-    new_param = param - hyper_params.learning_rate * grad / (jnp.sqrt(new_v) +
-                                                             hyper_params.eps)
+    new_v = hyper_params.beta2 * state.v + (1.0 - hyper_params.beta2) * jnp.square(grad)
+    new_param = param - hyper_params.learning_rate * grad / (jnp.sqrt(new_v) + hyper_params.eps)
     new_state = _RMSPropParamState(new_v)
 
     return new_param, new_state

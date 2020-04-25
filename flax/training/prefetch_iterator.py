@@ -30,7 +30,6 @@ class PrefetchIterator:
     tf_iter = PrefetchIterator(tf_iter)  # prefetches data in the background
 
   """
-
   def __init__(self, data_iter, buffer_size=1):
     """Construct a PrefetchIterator.
 

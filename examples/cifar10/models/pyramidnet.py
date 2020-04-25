@@ -25,7 +25,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """PyramidNet with shake-drop."""
 
 from flax import nn
@@ -59,11 +58,8 @@ def shortcut(x, chn_out, strides):
 
 class BottleneckShakeDrop(nn.Module):
   """PyramidNet with Shake-Drop Bottleneck."""
-
-  def apply(self, x, channels, strides, prob, alpha_min, alpha_max,
-            beta_min, beta_max, train=True):
-    batch_norm = nn.BatchNorm.partial(use_running_average=not train,
-                                      momentum=0.9, epsilon=1e-5)
+  def apply(self, x, channels, strides, prob, alpha_min, alpha_max, beta_min, beta_max, train=True):
+    batch_norm = nn.BatchNorm.partial(use_running_average=not train, momentum=0.9, epsilon=1e-5)
 
     y = batch_norm(x, name='bn_1_pre')
     y = nn.Conv(y, channels, (1, 1), padding='SAME', name='1x1_conv_contract')
@@ -72,12 +68,11 @@ class BottleneckShakeDrop(nn.Module):
     y = nn.Conv(y, channels, (3, 3), strides, padding='SAME', name='3x3')
     y = batch_norm(y, name='bn_2')
     y = jax.nn.relu(y)
-    y = nn.Conv(y, channels*4, (1, 1), padding='SAME', name='1x1_conv_expand')
+    y = nn.Conv(y, channels * 4, (1, 1), padding='SAME', name='1x1_conv_expand')
     y = batch_norm(y, name='bn_3')
 
     if train:
-      y = utils.shake_drop_train(y, prob, alpha_min, alpha_max,
-                                 beta_min, beta_max)
+      y = utils.shake_drop_train(y, prob, alpha_min, alpha_max, beta_min, beta_max)
     else:
       y = utils.shake_drop_eval(y, prob, alpha_min, alpha_max)
 
@@ -92,12 +87,7 @@ def _calc_shakedrop_mask_prob(curr_layer, total_layers, mask_prob):
 
 class PyramidNetShakeDrop(nn.Module):
   """PyramidNet with Shake-Drop."""
-
-  def apply(self,
-            x,
-            num_outputs,
-            pyramid_alpha=200, pyramid_depth=272,
-            train=True):
+  def apply(self, x, num_outputs, pyramid_alpha=200, pyramid_depth=272, train=True):
     assert (pyramid_depth - 2) % 9 == 0
 
     # Shake-drop hyper-params
@@ -114,51 +104,51 @@ class PyramidNetShakeDrop(nn.Module):
     delta_channels = pyramid_alpha / total_blocks
 
     x = nn.Conv(x, 16, (3, 3), padding='SAME', name='init_conv')
-    x = nn.BatchNorm(
-        x,
-        use_running_average=not train,
-        momentum=0.9,
-        epsilon=1e-5, name='init_bn')
+    x = nn.BatchNorm(x, use_running_average=not train, momentum=0.9, epsilon=1e-5, name='init_bn')
 
     layer_num = 1
 
     for block_i in range(blocks_per_group):
       num_channels += delta_channels
-      layer_mask_prob = _calc_shakedrop_mask_prob(
-          layer_num, total_blocks, mask_prob)
-      x = BottleneckShakeDrop(x, int(num_channels), (1, 1), layer_mask_prob,
-                              alpha_min, alpha_max, beta_min, beta_max,
+      layer_mask_prob = _calc_shakedrop_mask_prob(layer_num, total_blocks, mask_prob)
+      x = BottleneckShakeDrop(x,
+                              int(num_channels), (1, 1),
+                              layer_mask_prob,
+                              alpha_min,
+                              alpha_max,
+                              beta_min,
+                              beta_max,
                               train=train)
       layer_num += 1
 
     for block_i in range(blocks_per_group):
       num_channels += delta_channels
-      layer_mask_prob = _calc_shakedrop_mask_prob(
-          layer_num, total_blocks, mask_prob)
-      x = BottleneckShakeDrop(x, int(num_channels),
-                              ((2, 2) if block_i == 0 else (1, 1)),
+      layer_mask_prob = _calc_shakedrop_mask_prob(layer_num, total_blocks, mask_prob)
+      x = BottleneckShakeDrop(x,
+                              int(num_channels), ((2, 2) if block_i == 0 else (1, 1)),
                               layer_mask_prob,
-                              alpha_min, alpha_max, beta_min, beta_max,
+                              alpha_min,
+                              alpha_max,
+                              beta_min,
+                              beta_max,
                               train=train)
       layer_num += 1
 
     for block_i in range(blocks_per_group):
       num_channels += delta_channels
-      layer_mask_prob = _calc_shakedrop_mask_prob(
-          layer_num, total_blocks, mask_prob)
-      x = BottleneckShakeDrop(x, int(num_channels),
-                              ((2, 2) if block_i == 0 else (1, 1)),
+      layer_mask_prob = _calc_shakedrop_mask_prob(layer_num, total_blocks, mask_prob)
+      x = BottleneckShakeDrop(x,
+                              int(num_channels), ((2, 2) if block_i == 0 else (1, 1)),
                               layer_mask_prob,
-                              alpha_min, alpha_max, beta_min, beta_max,
+                              alpha_min,
+                              alpha_max,
+                              beta_min,
+                              beta_max,
                               train=train)
       layer_num += 1
 
     assert layer_num - 1 == total_blocks
-    x = nn.BatchNorm(
-        x,
-        use_running_average=not train,
-        momentum=0.9,
-        epsilon=1e-5, name='final_bn')
+    x = nn.BatchNorm(x, use_running_average=not train, momentum=0.9, epsilon=1e-5, name='final_bn')
     x = jax.nn.relu(x)
     x = nn.avg_pool(x, (8, 8))
     x = x.reshape((x.shape[0], -1))

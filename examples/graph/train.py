@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Social graph example."""
 
 from absl import app
@@ -34,7 +33,6 @@ class GNN(nn.Module):
   with `MessagePassingBlock` for a more expressive GNN architecture (which,
   however, is more likely to overfit in this example).
   """
-
   def apply(self, node_x, edge_x, sources, targets):
     """Computes GNN forward pass.
 
@@ -77,19 +75,16 @@ def get_karate_club_data():
   """
 
   # Edge list of Zachary's karate club.
-  edge_list = [
-      (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8),
-      (0, 10), (0, 11), (0, 12), (0, 13), (0, 17), (0, 19), (0, 21), (0, 31),
-      (1, 2), (1, 3), (1, 7), (1, 13), (1, 17), (1, 19), (1, 21), (1, 30),
-      (2, 3), (2, 7), (2, 8), (2, 9), (2, 13), (2, 27), (2, 28), (2, 32),
-      (3, 7), (3, 12), (3, 13), (4, 6), (4, 10), (5, 6), (5, 10), (5, 16),
-      (6, 16), (8, 30), (8, 32), (8, 33), (9, 33), (13, 33), (14, 32), (14, 33),
-      (15, 32), (15, 33), (18, 32), (18, 33), (19, 33), (20, 32), (20, 33),
-      (22, 32), (22, 33), (23, 25), (23, 27), (23, 29), (23, 32), (23, 33),
-      (24, 25), (24, 27), (24, 31), (25, 31), (26, 29), (26, 33), (27, 33),
-      (28, 31), (28, 33), (29, 32), (29, 33), (30, 32), (30, 33), (31, 32),
-      (31, 33), (32, 33)
-  ]
+  edge_list = [(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8), (0, 10), (0, 11),
+               (0, 12), (0, 13), (0, 17), (0, 19), (0, 21), (0, 31),
+               (1, 2), (1, 3), (1, 7), (1, 13), (1, 17), (1, 19), (1, 21), (1, 30), (2, 3), (2, 7),
+               (2, 8), (2, 9), (2, 13), (2, 27), (2, 28), (2, 32), (3, 7), (3, 12), (3, 13), (4, 6),
+               (4, 10), (5, 6), (5, 10), (5, 16), (6, 16), (8, 30), (8, 32), (8, 33), (9, 33),
+               (13, 33), (14, 32), (14, 33), (15, 32), (15, 33), (18, 32), (18, 33), (19, 33),
+               (20, 32), (20, 33), (22, 32), (22, 33), (23, 25), (23, 27), (23, 29), (23, 32),
+               (23, 33), (24, 25), (24, 27), (24, 31), (25, 31), (26, 29), (26, 33), (27, 33),
+               (28, 31), (28, 33), (29, 32), (29, 33), (30, 32), (30, 33), (31, 32), (31, 33),
+               (32, 33)]
 
   # Add inverted edges to make graph undirected.
   edge_list += [(target, source) for source, target in edge_list]
@@ -101,8 +96,10 @@ def get_karate_club_data():
   # Student-teacher assignment (before split) as in Zachary (1977).
   # Part-time karate instructor: Mr. Hi, node 0 (labeled as 0).
   # President: John A., node 33 (labeled as 1).
-  node_labels = jnp.array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0,
-                           0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+  node_labels = jnp.array([
+      0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1
+  ])
   node_feats = jnp.eye(len(node_labels))  # Unique one-hot features.
 
   return node_feats, node_labels, sources, targets
@@ -124,6 +121,7 @@ def train_step(optimizer, node_feats, sources, targets):
     logits = model(node_feats, None, sources, targets)
     loss = semi_supervised_cross_entropy_loss(logits)
     return loss
+
   loss, grad = jax.value_and_grad(loss_fn)(optimizer.target)
   optimizer = optimizer.apply_gradient(grad)
   return optimizer, loss
@@ -144,8 +142,11 @@ def train():
   node_feats, node_labels, sources, targets = get_karate_club_data()
 
   # Create model and optimizer.
-  _, initial_params = GNN.init(
-      rng, node_x=node_feats, edge_x=None, sources=sources, targets=targets)
+  _, initial_params = GNN.init(rng,
+                               node_x=node_feats,
+                               edge_x=None,
+                               sources=sources,
+                               targets=targets)
   model = nn.Model(GNN, initial_params)
   optimizer = optim.Adam(learning_rate=0.01).create(model)
 
@@ -156,14 +157,14 @@ def train():
     accuracy = eval_step(  # Model is stored in `optimizer.target`.
         optimizer.target, node_feats, sources, targets, node_labels)
 
-    print('iteration: %d, loss: %.4f, accuracy: %.2f'
-          % (iteration+1, loss, accuracy * 100))
+    print('iteration: %d, loss: %.4f, accuracy: %.2f' % (iteration + 1, loss, accuracy * 100))
 
 
 def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
   train()
+
 
 if __name__ == '__main__':
   app.run(main)

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """MNIST example.
 
 This script trains a simple Convolutional Neural Net on the MNIST dataset.
@@ -35,30 +34,23 @@ import numpy as onp
 
 import tensorflow_datasets as tfds
 
-
 FLAGS = flags.FLAGS
 
-flags.DEFINE_float(
-    'learning_rate', default=0.1,
-    help=('The learning rate for the momentum optimizer.'))
+flags.DEFINE_float('learning_rate',
+                   default=0.1,
+                   help=('The learning rate for the momentum optimizer.'))
 
-flags.DEFINE_float(
-    'momentum', default=0.9,
-    help=('The decay rate used for the momentum optimizer.'))
+flags.DEFINE_float('momentum',
+                   default=0.9,
+                   help=('The decay rate used for the momentum optimizer.'))
 
-flags.DEFINE_integer(
-    'batch_size', default=128,
-    help=('Batch size for training.'))
+flags.DEFINE_integer('batch_size', default=128, help=('Batch size for training.'))
 
-flags.DEFINE_integer(
-    'num_epochs', default=10,
-    help=('Number of training epochs.'))
-
+flags.DEFINE_integer('num_epochs', default=10, help=('Number of training epochs.'))
 
 
 class CNN(nn.Module):
   """A simple CNN model."""
-
   def apply(self, x):
     x = nn.Conv(x, features=32, kernel_size=(3, 3))
     x = nn.relu(x)
@@ -112,6 +104,7 @@ def train_step(optimizer, batch):
     logits = model(batch['image'])
     loss = cross_entropy_loss(logits, batch['label'])
     return loss, logits
+
   grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
   (_, logits), grad = grad_fn(optimizer.target)
   optimizer = optimizer.apply_gradient(grad)
@@ -143,10 +136,11 @@ def train_epoch(optimizer, train_ds, batch_size, epoch, rng):
   batch_metrics_np = jax.device_get(batch_metrics)
   epoch_metrics_np = {
       k: onp.mean([metrics[k] for metrics in batch_metrics_np])
-      for k in batch_metrics_np[0]}
+      for k in batch_metrics_np[0]
+  }
 
-  logging.info('train epoch: %d, loss: %.4f, accuracy: %.2f', epoch,
-               epoch_metrics_np['loss'], epoch_metrics_np['accuracy'] * 100)
+  logging.info('train epoch: %d, loss: %.4f, accuracy: %.2f', epoch, epoch_metrics_np['loss'],
+               epoch_metrics_np['accuracy'] * 100)
 
   return optimizer, epoch_metrics_np
 
@@ -182,11 +176,9 @@ def train(train_ds, test_ds):
   input_rng = onp.random.RandomState(0)
 
   for epoch in range(1, num_epochs + 1):
-    optimizer, _ = train_epoch(
-        optimizer, train_ds, batch_size, epoch, input_rng)
+    optimizer, _ = train_epoch(optimizer, train_ds, batch_size, epoch, input_rng)
     loss, accuracy = eval_model(optimizer.target, test_ds)
-    logging.info('eval epoch: %d, loss: %.4f, accuracy: %.2f',
-                 epoch, loss, accuracy * 100)
+    logging.info('eval epoch: %d, loss: %.4f, accuracy: %.2f', epoch, loss, accuracy * 100)
   return optimizer
 
 

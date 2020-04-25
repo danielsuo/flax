@@ -11,12 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """CIFAR-10 input pipeline."""
 
 import tensorflow.compat.v2 as tf
 import tensorflow_datasets as tfds
-
 
 HEIGHT = 32
 WIDTH = 32
@@ -43,9 +41,8 @@ def augment(image, crop_padding=4, flip_lr=True):
     # Pad with reflection padding
     # (See https://arxiv.org/abs/1605.07146)
     # Section 3
-    image = tf.pad(
-        image, [[crop_padding, crop_padding],
-                [crop_padding, crop_padding], [0, 0]], 'REFLECT')
+    image = tf.pad(image, [[crop_padding, crop_padding], [crop_padding, crop_padding], [0, 0]],
+                   'REFLECT')
 
     # Randomly crop a [HEIGHT, WIDTH] section of the image.
     image = tf.image.random_crop(image, [HEIGHT, WIDTH, NUM_CHANNELS])

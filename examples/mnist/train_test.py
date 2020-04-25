@@ -28,14 +28,12 @@ jax.config.parse_flags_with_absl()
 
 
 class TrainTest(absltest.TestCase):
-
   def test_train_one_epoch(self):
     train_ds, test_ds = train.get_datasets()
     input_rng = onp.random.RandomState(0)
     model = train.create_model(random.PRNGKey(0))
     optimizer = train.create_optimizer(model, 0.1, 0.9)
-    optimizer, train_metrics = train.train_epoch(optimizer, train_ds, 128, 0,
-                                                 input_rng)
+    optimizer, train_metrics = train.train_epoch(optimizer, train_ds, 128, 0, input_rng)
     self.assertLessEqual(train_metrics['loss'], 0.27)
     self.assertGreaterEqual(train_metrics['accuracy'], 0.92)
     loss, accuracy = train.eval_model(optimizer.target, test_ds)

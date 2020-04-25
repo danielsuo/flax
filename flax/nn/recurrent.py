@@ -36,7 +36,6 @@ from jax import random
 
 class RNNCellBase(base.Module):
   """RNN cell base class."""
-
   @staticmethod
   @abc.abstractmethod
   def initialize_carry(rng, batch_dims, size, init_fn=initializers.zeros):
@@ -55,9 +54,11 @@ class RNNCellBase(base.Module):
 
 class LSTMCell(RNNCellBase):
   """LSTM cell."""
-
-  def apply(self, carry, inputs,
-            gate_fn=activation.sigmoid, activation_fn=activation.tanh,
+  def apply(self,
+            carry,
+            inputs,
+            gate_fn=activation.sigmoid,
+            activation_fn=activation.tanh,
             kernel_init=linear.default_kernel_init,
             recurrent_kernel_init=initializers.orthogonal(),
             bias_init=initializers.zeros):
@@ -95,12 +96,15 @@ class LSTMCell(RNNCellBase):
     c, h = carry
     hidden_features = h.shape[-1]
     # input and recurrent layers are summed so only one needs a bias.
-    dense_h = linear.Dense.partial(
-        inputs=h, features=hidden_features, bias=True,
-        kernel_init=recurrent_kernel_init, bias_init=bias_init)
-    dense_i = linear.Dense.partial(
-        inputs=inputs, features=hidden_features, bias=False,
-        kernel_init=kernel_init)
+    dense_h = linear.Dense.partial(inputs=h,
+                                   features=hidden_features,
+                                   bias=True,
+                                   kernel_init=recurrent_kernel_init,
+                                   bias_init=bias_init)
+    dense_i = linear.Dense.partial(inputs=inputs,
+                                   features=hidden_features,
+                                   bias=False,
+                                   kernel_init=kernel_init)
     i = gate_fn(dense_i(name='ii') + dense_h(name='hi'))
     f = gate_fn(dense_i(name='if') + dense_h(name='hf'))
     g = activation_fn(dense_i(name='ig') + dense_h(name='hg'))
@@ -122,15 +126,17 @@ class LSTMCell(RNNCellBase):
       An initialized carry for the given RNN cell.
     """
     key1, key2 = random.split(rng)
-    mem_shape = batch_dims + (size,)
+    mem_shape = batch_dims + (size, )
     return init_fn(key1, mem_shape), init_fn(key2, mem_shape)
 
 
 class GRUCell(RNNCellBase):
   """GRU cell."""
-
-  def apply(self, carry, inputs,
-            gate_fn=activation.sigmoid, activation_fn=activation.tanh,
+  def apply(self,
+            carry,
+            inputs,
+            gate_fn=activation.sigmoid,
+            activation_fn=activation.tanh,
             kernel_init=linear.default_kernel_init,
             recurrent_kernel_init=initializers.orthogonal(),
             bias_init=initializers.zeros):
@@ -165,12 +171,16 @@ class GRUCell(RNNCellBase):
     h = carry
     hidden_features = h.shape[-1]
     # input and recurrent layers are summed so only one needs a bias.
-    dense_h = linear.Dense.partial(
-        inputs=h, features=hidden_features, bias=False,
-        kernel_init=recurrent_kernel_init, bias_init=bias_init)
-    dense_i = linear.Dense.partial(
-        inputs=inputs, features=hidden_features, bias=True,
-        kernel_init=kernel_init, bias_init=bias_init)
+    dense_h = linear.Dense.partial(inputs=h,
+                                   features=hidden_features,
+                                   bias=False,
+                                   kernel_init=recurrent_kernel_init,
+                                   bias_init=bias_init)
+    dense_i = linear.Dense.partial(inputs=inputs,
+                                   features=hidden_features,
+                                   bias=True,
+                                   kernel_init=kernel_init,
+                                   bias_init=bias_init)
     r = gate_fn(dense_i(name='ir') + dense_h(name='hr'))
     z = gate_fn(dense_i(name='iz') + dense_h(name='hz'))
     # add bias because the linear transformations aren't directly summed.
@@ -190,6 +200,5 @@ class GRUCell(RNNCellBase):
     Returns:
       An initialized carry for the given RNN cell.
     """
-    mem_shape = batch_dims + (size,)
+    mem_shape = batch_dims + (size, )
     return init_fn(rng, mem_shape)
-

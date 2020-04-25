@@ -25,7 +25,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """
 Read all of the HOWTO .diff files and convert them into .html files
 that are both Python syntax highlighted /and/ diff syntax highlighted.
@@ -41,12 +40,14 @@ from pygments.lexers import PythonLexer
 import re
 import os
 
+
 def main():
   print("Formatting HOWTOs into HTML files in _formatted_howtos/")
   os.makedirs('_formatted_howtos', exist_ok=True)
   for diff_filename in os.listdir(os.path.join('..', 'howtos', 'diffs')):
     format_howto(os.path.join('..', 'howtos', 'diffs', diff_filename),
-           os.path.join('_formatted_howtos', diff_filename + '.html'))
+                 os.path.join('_formatted_howtos', diff_filename + '.html'))
+
 
 def format_howto(input_file, output_file):
   # Load one of our HOWTO diff files.
@@ -66,11 +67,10 @@ def format_howto(input_file, output_file):
   # insert, remove or context.  Create a regexp that matches empty
   # lines that are either of these three types.
   empty_line_regexp = re.compile('[+\\- ]\n')
-  diff = [diff[lineno] for lineno in range(len(diff))
-      if lineno == 0 or not (
-        empty_line_regexp.match(diff[lineno]) and
-        empty_line_regexp.match(diff[lineno-1])
-       )]
+  diff = [
+      diff[lineno] for lineno in range(len(diff)) if lineno == 0
+      or not (empty_line_regexp.match(diff[lineno]) and empty_line_regexp.match(diff[lineno - 1]))
+  ]
 
   # Don't do any special formatting.
   class RawHtmlFormatter(pygments.formatters.HtmlFormatter):
@@ -79,17 +79,15 @@ def format_howto(input_file, output_file):
 
   # Run `diff` through the normal pygments Python syntax
   # highlighter. Get back an array of HTML lines.
-  colored_diff = (
-    pygments.highlight('\n'.join(diff), PythonLexer(), RawHtmlFormatter())
-  ).splitlines()
+  colored_diff = (pygments.highlight('\n'.join(diff), PythonLexer(),
+                                     RawHtmlFormatter())).splitlines()
 
   # Write a newly formatted diff-and-Python syntax highlighted
   # output HTML file, that can be inline included into any .rst
   # file.
   with open(output_file, 'w') as out_file:
     # Add the relevant DIVs that Sphinx adds around code blocks.
-    print('<div class="highlight-default notranslate"><div class="highlight">',
-        file=out_file)
+    print('<div class="highlight-default notranslate"><div class="highlight">', file=out_file)
     print('<pre class="code">', file=out_file)
 
     for line in colored_diff:
@@ -100,15 +98,15 @@ def format_howto(input_file, output_file):
       if re.match(r'^<span class=".*">@@', line):
         # chunk breaker, replace with grey [...]
         print('<span style="background-color: rgba(128, 128, 128, 0.3)">[...]</span>',
-            file=out_file)
+              file=out_file)
       elif re.match(r'^<span class=".*">\+', line):
         # inserted line
         print('<span style="background-color: rgba(0, 255, 0, 0.3)">' + line + '</span>',
-            file=out_file)
+              file=out_file)
       elif re.match(r'^<span class=".*">-', line):
         # removed line
         print('<span style="background-color: rgba(255, 0, 0, 0.3)">' + line + '</span>',
-            file=out_file)
+              file=out_file)
       else:
         # context
         print(line, file=out_file)

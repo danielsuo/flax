@@ -44,108 +44,88 @@ import tensorflow.compat.v2 as tf
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string(
-    'model_dir', default=None,
-    help='Directory to store model data.')
+flags.DEFINE_string('model_dir', default=None, help='Directory to store model data.')
 
-flags.DEFINE_string(
-    'data_dir', default=None,
-    help='Directory containing TFDS lm1b/subwords32k dataset.')
+flags.DEFINE_string('data_dir',
+                    default=None,
+                    help='Directory containing TFDS lm1b/subwords32k dataset.')
 
-flags.DEFINE_integer(
-    'batch_size', default=2048,
-    help='Batch size for training.')
+flags.DEFINE_integer('batch_size', default=2048, help='Batch size for training.')
 
-flags.DEFINE_integer(
-    'eval_frequency', default=1000,
-    help='Frequency of eval during training, e.g. every 1000 steps.')
+flags.DEFINE_integer('eval_frequency',
+                     default=1000,
+                     help='Frequency of eval during training, e.g. every 1000 steps.')
 
-flags.DEFINE_integer(
-    'num_train_steps', default=500000,
-    help='Number of training steps.')
+flags.DEFINE_integer('num_train_steps', default=500000, help='Number of training steps.')
 
-flags.DEFINE_integer(
-    'num_eval_steps', default=20,
-    help='Number of evaluation steps. If -1 use the whole evaluation set.')
+flags.DEFINE_integer('num_eval_steps',
+                     default=20,
+                     help='Number of evaluation steps. If -1 use the whole evaluation set.')
 
-flags.DEFINE_float(
-    'learning_rate', default=0.05,
-    help='Learning rate.')
+flags.DEFINE_float('learning_rate', default=0.05, help='Learning rate.')
 
-flags.DEFINE_float(
-    'weight_decay', default=1e-1,
-    help='Decay factor for AdamW-style weight decay.')
+flags.DEFINE_float('weight_decay', default=1e-1, help='Decay factor for AdamW-style weight decay.')
 
-flags.DEFINE_integer(
-    'max_target_length', default=512,
-    help='Maximum length of training examples.')
+flags.DEFINE_integer('max_target_length', default=512, help='Maximum length of training examples.')
 
-flags.DEFINE_integer(
-    'max_eval_target_length', default=2048,
-    help='Maximum length of eval examples.')
+flags.DEFINE_integer('max_eval_target_length',
+                     default=2048,
+                     help='Maximum length of eval examples.')
 
-flags.DEFINE_float(
-    'sampling_temperature', default=0.6,
-    help='Sampling temperature for language model inference.')
+flags.DEFINE_float('sampling_temperature',
+                   default=0.6,
+                   help='Sampling temperature for language model inference.')
 
-flags.DEFINE_integer(
-    'sampling_top_k', default=20,
-    help='Top k cutoff for logit sampling. If 0 then no top-k cutoff is used.')
+flags.DEFINE_integer('sampling_top_k',
+                     default=20,
+                     help='Top k cutoff for logit sampling. If 0 then no top-k cutoff is used.')
 
-flags.DEFINE_string(
-    'prompt', default='I love to ',
-    help='Prompt for language model sampling.')
+flags.DEFINE_string('prompt', default='I love to ', help='Prompt for language model sampling.')
 
-flags.DEFINE_integer(
-    'max_predict_token_length', default=50,
-    help='Maximum example text inference token length.')
+flags.DEFINE_integer('max_predict_token_length',
+                     default=50,
+                     help='Maximum example text inference token length.')
 
-flags.DEFINE_bool(
-    'save_checkpoints', default=True,
-    help='Whether to save model checkpoints for debugging.')
+flags.DEFINE_bool('save_checkpoints',
+                  default=True,
+                  help='Whether to save model checkpoints for debugging.')
 
-flags.DEFINE_bool(
-    'restore_checkpoints', default=True,
-    help='Whether to restore from existing model checkpoints.')
+flags.DEFINE_bool('restore_checkpoints',
+                  default=True,
+                  help='Whether to restore from existing model checkpoints.')
 
-flags.DEFINE_integer(
-    'checkpoint_freq', default=10000,
-    help='Whether to restore from existing model checkpoints.')
+flags.DEFINE_integer('checkpoint_freq',
+                     default=10000,
+                     help='Whether to restore from existing model checkpoints.')
 
-flags.DEFINE_integer(
-    'random_seed', default=0,
-    help='Integer for PRNG random seed.')
+flags.DEFINE_integer('random_seed', default=0, help='Integer for PRNG random seed.')
 
 
 @functools.partial(jax.jit, static_argnums=(1, 2))
 def create_model(key, input_shape, model_kwargs):
   module = models.TransformerLM.partial(**model_kwargs)
   with nn.attention.Cache().mutate() as cache_def:
-    _, initial_params = module.init_by_shape(key,
-                                         [(input_shape, jnp.float32)],
-                                         cache=cache_def)
+    _, initial_params = module.init_by_shape(key, [(input_shape, jnp.float32)], cache=cache_def)
   model = nn.Model(module, initial_params)
   return model, cache_def
 
 
 def create_optimizer(model, learning_rate):
-  optimizer_def = optim.Adam(
-      learning_rate,
-      beta1=0.9,
-      beta2=0.98,
-      eps=1e-9,
-      weight_decay=FLAGS.weight_decay)
+  optimizer_def = optim.Adam(learning_rate,
+                             beta1=0.9,
+                             beta2=0.98,
+                             eps=1e-9,
+                             weight_decay=FLAGS.weight_decay)
   optimizer = optimizer_def.create(model)
   return optimizer
 
 
-def create_learning_rate_scheduler(
-    factors='constant * linear_warmup * rsqrt_decay',
-    base_learning_rate=0.5,
-    warmup_steps=8000,
-    decay_factor=0.5,
-    steps_per_decay=20000,
-    steps_per_cycle=100000):
+def create_learning_rate_scheduler(factors='constant * linear_warmup * rsqrt_decay',
+                                   base_learning_rate=0.5,
+                                   warmup_steps=8000,
+                                   decay_factor=0.5,
+                                   steps_per_decay=20000,
+                                   steps_per_cycle=100000):
   """Creates learning rate schedule.
 
   Interprets factors in the factors string which can consist of:
@@ -185,10 +165,8 @@ def create_learning_rate_scheduler(
       elif name == 'decay_every':
         ret *= (decay_factor**(step // steps_per_decay))
       elif name == 'cosine_decay':
-        progress = jnp.maximum(0.0,
-                               (step - warmup_steps) / float(steps_per_cycle))
-        ret *= jnp.maximum(0.0,
-                           0.5 * (1.0 + jnp.cos(jnp.pi * (progress % 1.0))))
+        progress = jnp.maximum(0.0, (step - warmup_steps) / float(steps_per_cycle))
+        ret *= jnp.maximum(0.0, 0.5 * (1.0 + jnp.cos(jnp.pi * (progress % 1.0))))
       else:
         raise ValueError('Unknown factor %s.' % name)
     return jnp.asarray(ret, dtype=jnp.float32)
@@ -321,7 +299,7 @@ def predict_step(inputs, model, cache, prng_key):
 def tohost(x):
   """Collect batches from all devices to host and flatten batch dimensions."""
   n_device, n_batch, *remaining_dims = x.shape
-  return np.array(x).reshape((n_device * n_batch,) + tuple(remaining_dims))
+  return np.array(x).reshape((n_device * n_batch, ) + tuple(remaining_dims))
 
 
 def main(argv):
@@ -340,10 +318,8 @@ def main(argv):
   random_seed = FLAGS.random_seed
 
   if jax.host_id() == 0:
-    train_summary_writer = tensorboard.SummaryWriter(
-        os.path.join(FLAGS.model_dir, 'train'))
-    eval_summary_writer = tensorboard.SummaryWriter(
-        os.path.join(FLAGS.model_dir, 'eval'))
+    train_summary_writer = tensorboard.SummaryWriter(os.path.join(FLAGS.model_dir, 'train'))
+    eval_summary_writer = tensorboard.SummaryWriter(os.path.join(FLAGS.model_dir, 'eval'))
 
   if batch_size % jax.device_count() > 0:
     raise ValueError('Batch size must be divisible by the number of devices')
@@ -390,11 +366,9 @@ def main(argv):
   # Replicate optimizer.
   optimizer = jax_utils.replicate(optimizer)
 
-  learning_rate_fn = create_learning_rate_scheduler(
-      base_learning_rate=learning_rate)
-  p_train_step = jax.pmap(
-      functools.partial(train_step, learning_rate_fn=learning_rate_fn),
-      axis_name='batch')
+  learning_rate_fn = create_learning_rate_scheduler(base_learning_rate=learning_rate)
+  p_train_step = jax.pmap(functools.partial(train_step, learning_rate_fn=learning_rate_fn),
+                          axis_name='batch')
   p_eval_step = jax.pmap(eval_step, axis_name='batch')
   p_pred_step = jax.pmap(predict_step, axis_name='batch')
 
@@ -402,17 +376,14 @@ def main(argv):
   tick = time.time()
   for step, batch in zip(range(start_step, num_train_steps), train_iter):
     batch = common_utils.shard(jax.tree_map(lambda x: x._numpy(), batch))  # pylint: disable=protected-access
-    optimizer, metrics, dropout_rngs = p_train_step(
-        optimizer, batch, dropout_rng=dropout_rngs)
+    optimizer, metrics, dropout_rngs = p_train_step(optimizer, batch, dropout_rng=dropout_rngs)
     metrics_all.append(metrics)
 
     # Save a Checkpoint
-    if ((step % FLAGS.checkpoint_freq == 0 and step > 0) or
-        step == num_train_steps - 1):
+    if ((step % FLAGS.checkpoint_freq == 0 and step > 0) or step == num_train_steps - 1):
       if jax.host_id() == 0 and FLAGS.save_checkpoints:
         # Save unreplicated optimizer + model state.
-        checkpoints.save_checkpoint(
-            FLAGS.model_dir, jax_utils.unreplicate(optimizer), step)
+        checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(optimizer), step)
 
     # Periodic metric handling.
     if step % eval_freq == 0 and step > 0:
@@ -445,8 +416,7 @@ def main(argv):
         num_iter = range(num_eval_steps)
       for _, eval_batch in zip(num_iter, eval_iter):
         # pylint: disable=protected-access
-        eval_batch = common_utils.shard(
-            jax.tree_map(lambda x: x._numpy(), eval_batch))
+        eval_batch = common_utils.shard(jax.tree_map(lambda x: x._numpy(), eval_batch))
         # pylint: enable=protected-access
         metrics = p_eval_step(optimizer.target, eval_batch)
         eval_metrics.append(metrics)
@@ -457,8 +427,7 @@ def main(argv):
           lambda x: x / eval_denominator,  # pylint: disable=cell-var-from-loop
           eval_metrics_sums)
       # Calculate (clipped) perplexity after averaging log-perplexities:
-      eval_summary['perplexity'] = jnp.clip(
-          jnp.exp(eval_summary['loss']), a_max=1.0e4)
+      eval_summary['perplexity'] = jnp.clip(jnp.exp(eval_summary['loss']), a_max=1.0e4)
       logging.info('eval in step: %d, loss: %.4f', step, eval_summary['loss'])
       if jax.host_id() == 0:
         for key, val in eval_summary.items():
@@ -471,8 +440,7 @@ def main(argv):
       prompt = jnp.array(encoder.encode(FLAGS.prompt))
       prompt = jax_utils.replicate(prompt)
       prompt = jnp.reshape(prompt, (prompt.shape[0], 1, prompt.shape[1]))
-      cache = jax_utils.replicate(
-          cache_def.initialize_cache((1, FLAGS.max_predict_token_length)))
+      cache = jax_utils.replicate(cache_def.initialize_cache((1, FLAGS.max_predict_token_length)))
       predicted = p_pred_step(prompt, optimizer.target, cache, pred_rngs)
       predicted = tohost(predicted)
       exemplars = ''

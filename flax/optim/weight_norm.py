@@ -44,7 +44,6 @@ class WeightNorm(OptimizerDef):
 
   See https://arxiv.org/abs/1602.07868
   """
-
   def __init__(self, wrapped_optimizer, wn_decay=0, wn_eps=1e-8):
     """Constructor for a WeightNorm optimizer.
 
@@ -63,16 +62,14 @@ class WeightNorm(OptimizerDef):
       wn_eps: additive constant for stability of
         the normalization (default: 1e-8).
     """
-    hps = _WeightNormHyperParams(
-        wrapped_optimizer.hyper_params, wn_decay, wn_eps)
+    hps = _WeightNormHyperParams(wrapped_optimizer.hyper_params, wn_decay, wn_eps)
     super().__init__(hps)
     self.wrapped_optimizer = wrapped_optimizer
 
   def update_hyper_params(self, **hyper_param_overrides):
     decay = hyper_param_overrides.pop('wn_decay', self.hyper_params.wn_decay)
     eps = hyper_param_overrides.pop('wn_eps', self.hyper_params.wn_eps)
-    inner = self.wrapped_optimizer.update_hyper_params(
-        **hyper_param_overrides)
+    inner = self.wrapped_optimizer.update_hyper_params(**hyper_param_overrides)
     return self.hyper_params.replace(inner=inner, wn_decay=decay, wn_eps=eps)
 
   def init_state(self, params):
@@ -84,9 +81,8 @@ class WeightNorm(OptimizerDef):
     state = self.wrapped_optimizer.init_state(wn_params)
     direction_state = state.param_states['direction']
     scale_state = state.param_states['scale']
-    param_states = jax.tree_multimap(
-        lambda _, *args: _WeightNormParamState(*args),
-        params, direction_state, scale_state, scales)
+    param_states = jax.tree_multimap(lambda _, *args: _WeightNormParamState(*args), params,
+                                     direction_state, scale_state, scales)
     return state.replace(param_states=param_states)
 
   def apply_gradient(self, hyper_params, params, state, grads):
@@ -95,14 +91,12 @@ class WeightNorm(OptimizerDef):
     g_leaves = treedef.flatten_up_to(grads)
     split_grads = zip(*(self._split_grad(p, s, g, hyper_params.wn_decay)
                         for p, s, g in zip(p_leaves, s_leaves, g_leaves)))
-    d_p, d_s, d_g, s_p, s_s, s_g = [
-        jax.tree_unflatten(treedef, x) for x in split_grads]
+    d_p, d_s, d_g, s_p, s_s, s_g = [jax.tree_unflatten(treedef, x) for x in split_grads]
     wn_params = {'direction': d_p, 'scale': s_p}
     wn_state = {'direction': d_s, 'scale': s_s}
     wn_grads = {'direction': d_g, 'scale': s_g}
     new_wn_params, new_state = self.wrapped_optimizer.apply_gradient(
-        hyper_params.inner, wn_params,
-        state.replace(param_states=wn_state), wn_grads)
+        hyper_params.inner, wn_params, state.replace(param_states=wn_state), wn_grads)
 
     directions = treedef.flatten_up_to(new_wn_params['direction'])
     scales = treedef.flatten_up_to(new_wn_params['scale'])
@@ -113,15 +107,13 @@ class WeightNorm(OptimizerDef):
 
     direction_state = new_state.param_states['direction']
     scale_state = new_state.param_states['scale']
-    param_states = jax.tree_multimap(
-        lambda _, *args: _WeightNormParamState(*args),
-        params, direction_state, scale_state, mults)
+    param_states = jax.tree_multimap(lambda _, *args: _WeightNormParamState(*args), params,
+                                     direction_state, scale_state, mults)
     return new_params, new_state.replace(param_states=param_states)
 
   def _split_param(self, param):
     if param.size > param.shape[-1]:
-      scale = jnp.sqrt(jnp.square(param).sum(
-          tuple(range(param.ndim-1)), keepdims=True))
+      scale = jnp.sqrt(jnp.square(param).sum(tuple(range(param.ndim - 1)), keepdims=True))
       direction = param / scale
       return direction, scale
     else:
@@ -129,8 +121,7 @@ class WeightNorm(OptimizerDef):
 
   def _merge_param(self, direction, scale, eps):
     if direction.size > direction.shape[-1]:
-      norm = jnp.sqrt(jnp.square(direction).sum(
-          tuple(range(direction.ndim - 1)), keepdims=True))
+      norm = jnp.sqrt(jnp.square(direction).sum(tuple(range(direction.ndim - 1)), keepdims=True))
       mult = scale / (eps + norm)
       param = direction * mult
       return param, mult
@@ -140,12 +131,11 @@ class WeightNorm(OptimizerDef):
   def _split_grad(self, param, state, grad, decay):
     """Split the gradient for the direction and scale."""
     if param.size > param.shape[-1]:
-      red_dims = tuple(range(param.ndim-1))
+      red_dims = tuple(range(param.ndim - 1))
       direction = param / state.mult
       norm = jnp.sqrt(jnp.square(param).sum(red_dims, keepdims=True))
       scale = norm * jnp.sign(state.mult)
-      scale_grad = jnp.sum(
-          grad * direction, axis=red_dims, keepdims=True)
+      scale_grad = jnp.sum(grad * direction, axis=red_dims, keepdims=True)
       direction_grad = state.mult * (grad - scale_grad * direction)
       if decay is not 0:
         direction_grad = direction_grad + decay * direction

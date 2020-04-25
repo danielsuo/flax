@@ -86,7 +86,6 @@ class OptimizerState:
 
 class OptimizerDef:
   """Base class for optimizers."""
-
   def __init__(self, hyper_params):
     self.hyper_params = hyper_params
 
@@ -131,8 +130,10 @@ class OptimizerDef:
     params_flat, treedef = jax.tree_flatten(params)
     states_flat = treedef.flatten_up_to(state.param_states)
     grads_flat = treedef.flatten_up_to(grads)
-    out = [self.apply_param_gradient(step, hyper_params, param, state, grad)
-           for param, state, grad in zip(params_flat, states_flat, grads_flat)]
+    out = [
+        self.apply_param_gradient(step, hyper_params, param, state, grad)
+        for param, state, grad in zip(params_flat, states_flat, grads_flat)
+    ]
 
     new_params_flat, new_states_flat = list(zip(*out)) if out else ((), ())
     new_params = jax.tree_unflatten(treedef, new_params_flat)
@@ -235,10 +236,9 @@ class Optimizer:
     Returns:
       A new optimizer with the updated target and state.
     """
-    hyper_params = self.optimizer_def.update_hyper_params(
-        **hyper_param_overrides)
-    new_target, new_state = self.optimizer_def.apply_gradient(
-        hyper_params, self.target, self.state, grads)
+    hyper_params = self.optimizer_def.update_hyper_params(**hyper_param_overrides)
+    new_target, new_state = self.optimizer_def.apply_gradient(hyper_params, self.target, self.state,
+                                                              grads)
     return self.replace(target=new_target, state=new_state)
 
   def compute_gradient(self, loss_fn):
@@ -255,22 +255,25 @@ class Optimizer:
       A tuple consisting of the loss, auxiliary outputs if any,
         and a list of gradient.
     """
-    warnings.warn('compute_gradient() will be removed soon.'
-                  ' Use jax.grad() or jax.value_and_grad()'
-                  'instead.',
-                  DeprecationWarning)
+    warnings.warn(
+        'compute_gradient() will be removed soon.'
+        ' Use jax.grad() or jax.value_and_grad()'
+        'instead.', DeprecationWarning)
+
     def loss_wrapper(target):
       loss_and_aux = loss_fn(target)
       if isinstance(loss_and_aux, jnp.ndarray):
         return loss_and_aux, _NoAux
       else:
         return loss_and_aux
+
     grad_fn = jax.value_and_grad(loss_wrapper, has_aux=True)
     (loss, aux), grad = grad_fn(self.target)
     if aux is _NoAux:
       return loss, grad
     else:
       return loss, aux, grad
+
   compute_gradients = compute_gradient
 
   def optimize(self, loss_fn, **hyper_param_overrides):
@@ -290,15 +293,15 @@ class Optimizer:
       A tuple consisting of the new optimizer, the loss,
         and the auxiliary outputs if any.
     """
-    warnings.warn('optimize() will be removed soon.'
-                  ' Use jax.grad() or jax.value_and_grad()'
-                  'and apply_gradient() instead.',
-                  DeprecationWarning)
+    warnings.warn(
+        'optimize() will be removed soon.'
+        ' Use jax.grad() or jax.value_and_grad()'
+        'and apply_gradient() instead.', DeprecationWarning)
 
     output_and_grad = self.compute_gradient(loss_fn)
     grad = output_and_grad[-1]
     optimizer = self.apply_gradient(grad, **hyper_param_overrides)
-    return (optimizer,) + output_and_grad[:-1]
+    return (optimizer, ) + output_and_grad[:-1]
 
   def replicate(self, devices=None, axis_name='batch'):
     """Replicates an optimizer for data parallel training.
@@ -330,8 +333,7 @@ class Optimizer:
       The optimizer that is no longer replicated.
     """
     if not isinstance(self.optimizer_def, ReplicatedOptimizer):
-      raise ValueError('Cannot unreplicate an optimizer '
-                       'that is not replicated.')
+      raise ValueError('Cannot unreplicate an optimizer ' 'that is not replicated.')
     optimizer_def = self.optimizer_def.optimizer_def
     optimizer = jax_utils.unreplicate(self)
     return optimizer.replace(optimizer_def=optimizer_def)
@@ -340,17 +342,17 @@ class Optimizer:
     return self.optimizer_def.state_dict(self.target, self.state)
 
   def restore_state(self, state):
-    target, state = self.optimizer_def.restore_state(
-        self.target, self.state, state)
+    target, state = self.optimizer_def.restore_state(self.target, self.state, state)
     return self.replace(target=target, state=state)
 
 
 # Optimizer serialization is handled by the state_dict and restore_dict methods
 # of the OptimizerDef. Currently, this is used to store only a single copy of
 # a replicated optimizer.
-serialization.register_serialization_state(
-    Optimizer, Optimizer.state_dict, Optimizer.restore_state,
-    override=True)
+serialization.register_serialization_state(Optimizer,
+                                           Optimizer.state_dict,
+                                           Optimizer.restore_state,
+                                           override=True)
 
 
 class ReplicatedOptimizer(OptimizerDef):
@@ -362,7 +364,6 @@ class ReplicatedOptimizer(OptimizerDef):
   control the replication of the the optimizer and the cross replica averaging
   over gradients, respectively.
   """
-
   def __init__(self, optimizer_def, devices=None, axis_name='batch'):
     super().__init__(optimizer_def.hyper_params)
     if devices is None:
@@ -399,7 +400,6 @@ class ReplicatedOptimizer(OptimizerDef):
 
 class MultiOptimizer(OptimizerDef):
   """Combine a set of optimizers by applying each to a subset of the parameters."""
-
   def __init__(self, *traversals_and_optimizers):
     """Create a new MultiOptimizer.
 
@@ -473,7 +473,6 @@ def _sorted_items(x):
 
 class ModelParamTraversal(traverse_util.Traversal):
   """Select model parameters using a name filter."""
-
   def __init__(self, filter_fn):
     """Constructor a new ModelParamTraversal.
 
@@ -488,8 +487,7 @@ class ModelParamTraversal(traverse_util.Traversal):
   @staticmethod
   def _check_inputs(inputs):
     if not isinstance(inputs, base.Model):
-      raise ValueError(
-          'ModelParamTraversal can only traverse a flax Model instance.')
+      raise ValueError('ModelParamTraversal can only traverse a flax Model instance.')
 
   def iterate(self, inputs):
     self._check_inputs(inputs)

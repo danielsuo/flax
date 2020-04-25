@@ -27,7 +27,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Utilities for defining custom classes that can be used with jax transformations.
 """
 
@@ -100,13 +99,10 @@ def dataclass(clz):
     kwargs = dict(meta_args + data_args)
     return data_clz(**kwargs)
 
-  jax.tree_util.register_pytree_node(data_clz,
-                                     iterate_clz,
-                                     clz_from_iterable)
+  jax.tree_util.register_pytree_node(data_clz, iterate_clz, clz_from_iterable)
 
   def to_state_dict(x):
-    state_dict = {name: serialization.to_state_dict(getattr(x, name))
-                  for name in data_fields}
+    state_dict = {name: serialization.to_state_dict(getattr(x, name)) for name in data_fields}
     return state_dict
 
   def from_state_dict(x, state):
@@ -126,8 +122,7 @@ def dataclass(clz):
                        f' restoring an instance of {clz.__name__}')
     return x.replace(**updates)
 
-  serialization.register_serialization_state(
-      data_clz, to_state_dict, from_state_dict)
+  serialization.register_serialization_state(data_clz, to_state_dict, from_state_dict)
 
   return data_clz
 

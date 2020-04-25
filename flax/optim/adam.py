@@ -40,13 +40,7 @@ class _AdamParamState:
 
 class Adam(OptimizerDef):
   """Adam optimizer."""
-
-  def __init__(self,
-               learning_rate=None,
-               beta1=0.9,
-               beta2=0.999,
-               eps=1e-8,
-               weight_decay=0.0):
+  def __init__(self, learning_rate=None, beta1=0.9, beta2=0.999, eps=1e-8, weight_decay=0.0):
     """Constructor for the Adam optimizer.
 
     Args:
@@ -60,8 +54,7 @@ class Adam(OptimizerDef):
       weight_decay: AdamW style weight decay rate
         (relative to learning rate).
     """
-    hyper_params = _AdamHyperParams(learning_rate, beta1, beta2, eps,
-                                    weight_decay)
+    hyper_params = _AdamHyperParams(learning_rate, beta1, beta2, eps, weight_decay)
     super().__init__(hyper_params)
 
   def init_param_state(self, param):
@@ -78,8 +71,8 @@ class Adam(OptimizerDef):
 
     # bias correction
     t = step + 1.
-    grad_ema_corr = grad_ema / (1 - beta1 ** t)
-    grad_sq_ema_corr = grad_sq_ema / (1 - beta2 ** t)
+    grad_ema_corr = grad_ema / (1 - beta1**t)
+    grad_sq_ema_corr = grad_sq_ema / (1 - beta2**t)
 
     denom = jnp.sqrt(grad_sq_ema_corr) + hyper_params.eps
     new_param = param - hyper_params.learning_rate * grad_ema_corr / denom

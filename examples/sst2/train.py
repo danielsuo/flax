@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """SST-2 example.
 
 This script trains a text classifier on the SST-2 dataset.
@@ -46,64 +45,43 @@ from tensorflow.compat.v2.io import gfile
 import input_pipeline
 import model as sst2_model
 
-
 FLAGS = flags.FLAGS
 
-flags.DEFINE_float(
-    'learning_rate', default=0.0005,
-    help=('The learning rate for the Adam optimizer.'))
+flags.DEFINE_float('learning_rate',
+                   default=0.0005,
+                   help=('The learning rate for the Adam optimizer.'))
 
-flags.DEFINE_integer(
-    'batch_size', default=64,
-    help=('Batch size for training.'))
+flags.DEFINE_integer('batch_size', default=64, help=('Batch size for training.'))
 
-flags.DEFINE_integer(
-    'num_epochs', default=20,
-    help=('Number of training epochs.'))
+flags.DEFINE_integer('num_epochs', default=20, help=('Number of training epochs.'))
 
-flags.DEFINE_float(
-    'dropout', default=0.5,
-    help=('Dropout rate'))
+flags.DEFINE_float('dropout', default=0.5, help=('Dropout rate'))
 
-flags.DEFINE_float(
-    'emb_dropout', default=0.5,
-    help=('Embedding dropout rate'))
+flags.DEFINE_float('emb_dropout', default=0.5, help=('Embedding dropout rate'))
 
-flags.DEFINE_float(
-    'word_dropout_rate', default=0.1,
-    help=('Word dropout rate. Replaces input words with <unk>.'))
+flags.DEFINE_float('word_dropout_rate',
+                   default=0.1,
+                   help=('Word dropout rate. Replaces input words with <unk>.'))
 
-flags.DEFINE_string(
-    'model_dir', default=None,
-    help=('Directory to store model data'))
+flags.DEFINE_string('model_dir', default=None, help=('Directory to store model data'))
 
-flags.DEFINE_integer(
-    'hidden_size', default=256,
-    help=('Hidden size for the LSTM and MLP.'))
+flags.DEFINE_integer('hidden_size', default=256, help=('Hidden size for the LSTM and MLP.'))
 
-flags.DEFINE_integer(
-    'embedding_size', default=256,
-    help=('Size of the word embeddings.'))
+flags.DEFINE_integer('embedding_size', default=256, help=('Size of the word embeddings.'))
 
-flags.DEFINE_integer(
-    'max_seq_len', default=55,
-    help=('Maximum sequence length in the dataset.'))
+flags.DEFINE_integer('max_seq_len', default=55, help=('Maximum sequence length in the dataset.'))
 
-flags.DEFINE_integer(
-    'min_freq', default=5,
-    help=('Minimum frequency for training set words to be in the vocabulary.'))
+flags.DEFINE_integer('min_freq',
+                     default=5,
+                     help=('Minimum frequency for training set words to be in the vocabulary.'))
 
-flags.DEFINE_float(
-    'l2_reg', default=1e-6,
-    help=('L2 regularization weight'))
+flags.DEFINE_float('l2_reg', default=1e-6, help=('L2 regularization weight'))
 
-flags.DEFINE_integer(
-    'seed', default=0,
-    help=('Random seed for network initialization.'))
+flags.DEFINE_integer('seed', default=0, help=('Random seed for network initialization.'))
 
-flags.DEFINE_integer(
-    'checkpoints_to_keep', default=1,
-    help=('How many checkpoints to keep. Default: 1 (keep best model only)'))
+flags.DEFINE_integer('checkpoints_to_keep',
+                     default=1,
+                     help=('How many checkpoints to keep. Default: 1 (keep best model only)'))
 
 
 @jax.vmap
@@ -124,8 +102,8 @@ def binary_cross_entropy_loss(logit: jnp.ndarray, label: jnp.ndarray):
 
 
 @jax.jit
-def train_step(optimizer: Any, inputs: jnp.ndarray, lengths: jnp.ndarray,
-               labels: jnp.ndarray, rng: Any, l2_reg: float):
+def train_step(optimizer: Any, inputs: jnp.ndarray, lengths: jnp.ndarray, labels: jnp.ndarray,
+               rng: Any, l2_reg: float):
   """Single optimized training step.
 
   Args:
@@ -141,6 +119,7 @@ def train_step(optimizer: Any, inputs: jnp.ndarray, lengths: jnp.ndarray,
     loss: The loss for this step.
   """
   rng, new_rng = jax.random.split(rng)
+
   def loss_fn(model):
     with nn.stochastic(rng):
       logits = model(inputs, lengths, train=True)
@@ -148,7 +127,7 @@ def train_step(optimizer: Any, inputs: jnp.ndarray, lengths: jnp.ndarray,
 
     # L2 regularization
     l2_params = jax.tree_leaves(model.params['lstm_classifier'])
-    l2_weight = jnp.sum([jnp.sum(p ** 2) for p in l2_params])
+    l2_weight = jnp.sum([jnp.sum(p**2) for p in l2_params])
     l2_penalty = l2_reg * l2_weight
 
     loss = loss + l2_penalty
@@ -171,8 +150,7 @@ def get_num_correct(logits: jnp.ndarray, labels: jnp.ndarray) -> jnp.ndarray:
 
 
 @jax.jit
-def eval_step(model: nn.Module, inputs: jnp.ndarray, lengths: jnp.ndarray,
-              labels: jnp.ndarray):
+def eval_step(model: nn.Module, inputs: jnp.ndarray, lengths: jnp.ndarray, labels: jnp.ndarray):
   """A single evaluation step.
 
   Args:
@@ -229,13 +207,14 @@ def log(stats, epoch, train_metrics, valid_metrics):
     valid_metrics: A dict with the validation metrics for this epoch.
   """
   train_loss = train_metrics['loss'] / train_metrics['total']
-  logging.info('Epoch %02d train loss %.4f valid loss %.4f acc %.2f', epoch + 1,
-               train_loss, valid_metrics['loss'], valid_metrics['acc'])
+  logging.info('Epoch %02d train loss %.4f valid loss %.4f acc %.2f', epoch + 1, train_loss,
+               valid_metrics['loss'], valid_metrics['acc'])
 
   # Remember the metrics for later plotting.
   stats['train_loss'].append(train_loss.item())
   for metric, value in valid_metrics.items():
     stats['valid_' + metric].append(value)
+
 
 def train(
     model: nn.Model,
@@ -267,10 +246,10 @@ def train(
   optimizer = flax.optim.Adam(learning_rate=learning_rate).create(model)
   stats = collections.defaultdict(list)
   best_score = 0.
-  train_batches = input_pipeline.get_shuffled_batches(
-      data_source.train_dataset, batch_size=batch_size, seed=seed)
-  valid_batches = input_pipeline.get_batches(
-      data_source.valid_dataset, batch_size=batch_size)
+  train_batches = input_pipeline.get_shuffled_batches(data_source.train_dataset,
+                                                      batch_size=batch_size,
+                                                      seed=seed)
+  valid_batches = input_pipeline.get_batches(data_source.valid_dataset, batch_size=batch_size)
 
   for epoch in range(num_epochs):
     train_metrics = collections.defaultdict(float)
@@ -278,8 +257,7 @@ def train(
     # Train for one epoch.
     for ex in tfds.as_numpy(train_batches):
       inputs, lengths, labels = ex['sentence'], ex['length'], ex['label']
-      optimizer, loss, rng = train_step(optimizer, inputs, lengths, labels, rng,
-                                        l2_reg)
+      optimizer, loss, rng = train_step(optimizer, inputs, lengths, labels, rng, l2_reg)
       train_metrics['loss'] += loss * inputs.shape[0]
       train_metrics['total'] += inputs.shape[0]
 
@@ -290,8 +268,10 @@ def train(
     # Save a checkpoint if this is the best model so far.
     if valid_metrics['acc'] > best_score:
       best_score = valid_metrics['acc']
-      flax.training.checkpoints.save_checkpoint(
-          model_dir, optimizer.target, epoch + 1, keep=checkpoints_to_keep)
+      flax.training.checkpoints.save_checkpoint(model_dir,
+                                                optimizer.target,
+                                                epoch + 1,
+                                                keep=checkpoints_to_keep)
 
   # Done training. Restore best model.
   logging.info('Training done! Best validation accuracy: %.2f', best_score)
@@ -316,34 +296,29 @@ def main(argv):
 
   # Create model.
   model = sst2_model.create_model(
-      FLAGS.seed,
-      FLAGS.batch_size,
-      FLAGS.max_seq_len,
-      dict(
-          vocab_size=data_source.vocab_size,
-          embedding_size=FLAGS.embedding_size,
-          hidden_size=FLAGS.hidden_size,
-          output_size=1,
-          unk_idx=data_source.unk_idx,
-          dropout=FLAGS.dropout,
-          emb_dropout=FLAGS.emb_dropout,
-          word_dropout_rate=FLAGS.word_dropout_rate))
+      FLAGS.seed, FLAGS.batch_size, FLAGS.max_seq_len,
+      dict(vocab_size=data_source.vocab_size,
+           embedding_size=FLAGS.embedding_size,
+           hidden_size=FLAGS.hidden_size,
+           output_size=1,
+           unk_idx=data_source.unk_idx,
+           dropout=FLAGS.dropout,
+           emb_dropout=FLAGS.emb_dropout,
+           word_dropout_rate=FLAGS.word_dropout_rate))
 
   # Train the model.
-  train_stats, model = train(
-      model,
-      learning_rate=FLAGS.learning_rate,
-      num_epochs=FLAGS.num_epochs,
-      seed=FLAGS.seed,
-      model_dir=FLAGS.model_dir,
-      data_source=data_source,
-      batch_size=FLAGS.batch_size,
-      checkpoints_to_keep=FLAGS.checkpoints_to_keep,
-      l2_reg=FLAGS.l2_reg)
+  train_stats, model = train(model,
+                             learning_rate=FLAGS.learning_rate,
+                             num_epochs=FLAGS.num_epochs,
+                             seed=FLAGS.seed,
+                             model_dir=FLAGS.model_dir,
+                             data_source=data_source,
+                             batch_size=FLAGS.batch_size,
+                             checkpoints_to_keep=FLAGS.checkpoints_to_keep,
+                             l2_reg=FLAGS.l2_reg)
 
   # Evaluate the best model.
-  valid_batches = input_pipeline.get_batches(
-      data_source.valid_dataset, batch_size=FLAGS.batch_size)
+  valid_batches = input_pipeline.get_batches(data_source.valid_dataset, batch_size=FLAGS.batch_size)
   metrics = evaluate(model, valid_batches)
   logging.info('Best validation accuracy: %.2f', metrics['acc'])
 

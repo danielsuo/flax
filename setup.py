@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """setup.py for Flax."""
 
 import os
@@ -53,7 +52,7 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
-        ],
+    ],
     keywords="",
     author="Flax team",
     author_email="flax-dev@google.com",
@@ -65,5 +64,5 @@ setup(
     install_requires=install_requires,
     extras_require={
         "testing": tests_require,
-        },
-    )
+    },
+)

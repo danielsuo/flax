@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for flax.nn."""
 
 import threading
@@ -31,14 +30,12 @@ jax.config.parse_flags_with_absl()
 
 
 class DummyModule(nn.Module):
-
   def apply(self, x):
     bias = self.param('bias', x.shape, initializers.ones)
     return x + bias
 
 
 class NestedModule(nn.Module):
-
   def apply(self, x):
     x = DummyModule(x, name='dummy_0')
     x = DummyModule(x, name='dummy_1')
@@ -46,7 +43,6 @@ class NestedModule(nn.Module):
 
 
 class NestedModel(nn.Module):
-
   def apply(self, x, model):
     x = DummyModule(x, name='dummy_0')
     x = model(x, name='inner_model')
@@ -54,14 +50,12 @@ class NestedModel(nn.Module):
 
 
 class DataDependentInitModule(nn.Module):
-
   def apply(self, x):
     bias = self.param('bias', x.shape, lambda rng, shape: x + 1.)
     return x + bias
 
 
 class CollectionModule(nn.Module):
-
   def apply(self, x, activations=None):
     bias = self.param('bias', x.shape, initializers.ones)
     y = x + bias
@@ -74,7 +68,6 @@ class CollectionModule(nn.Module):
 
 
 class LoopModule(nn.Module):
-
   def apply(self, x, activations=None):
     module = CollectionModule.shared(activations=activations, name='dummy')
     for _ in range(2):
@@ -83,7 +76,6 @@ class LoopModule(nn.Module):
 
 
 class ModuleTest(absltest.TestCase):
-
   def test_init_module(self):
     rng = random.PRNGKey(0)
     x = jnp.array([1.])
@@ -123,7 +115,6 @@ class ModuleTest(absltest.TestCase):
 
   def test_name_collsion(self):
     class FaultyModule(nn.Module):
-
       def apply(self, x):
         for _ in range(2):
           DummyModule(x, name='dummy')
@@ -134,7 +125,6 @@ class ModuleTest(absltest.TestCase):
 
   def test_sharing_name_collsion(self):
     class FaultyModule(nn.Module):
-
       def apply(self, x):
         for _ in range(2):
           module = DummyModule.shared(name='dummy')
@@ -146,7 +136,6 @@ class ModuleTest(absltest.TestCase):
 
   def test_sharing_name_on_apply(self):
     class FaultyModule(nn.Module):
-
       def apply(self, x):
         module = DummyModule.shared(name='dummy')
         for _ in range(2):
@@ -164,19 +153,15 @@ class ModuleTest(absltest.TestCase):
     are only stored once, in the frame where the shared module
     was created.
     """
-
     class SubModule(nn.Module):
-
       def apply(self):
         self.param('param', (), initializers.zeros)
 
     class UseSharedModule(nn.Module):
-
       def apply(self, submodule):
         submodule()
 
     class TopLevel(nn.Module):
-
       def apply(self):
         submodule = SubModule.shared(name='shared')
         submodule()
@@ -184,7 +169,9 @@ class ModuleTest(absltest.TestCase):
 
     _, params = TopLevel.init(random.PRNGKey(0))
     self.assertEqual({
-        'shared': {'param': jnp.zeros(())},
+        'shared': {
+            'param': jnp.zeros(())
+        },
         'use_shared': {},
     }, params)
 
@@ -262,43 +249,39 @@ class ModuleTest(absltest.TestCase):
 
   def test_call_module_method(self):
     class MultiMethod(nn.Module):
-
       def apply(self, x):
         return x + self.param('bias', x.shape, initializers.ones)
 
       @nn.module_method
       def l2(self):
-        return jnp.sum(self.get_param('bias') ** 2)
+        return jnp.sum(self.get_param('bias')**2)
 
     class MultiMethodModel(nn.Module):
-
       def apply(self, x):
         layer = MultiMethod.shared()
         layer(x)  # init
         return layer.l2()
 
-    self.assertEqual(
-        MultiMethod.l2.__qualname__,
-        MultiMethod.__qualname__ + '.l2')
+    self.assertEqual(MultiMethod.l2.__qualname__, MultiMethod.__qualname__ + '.l2')
 
     x = jnp.array([1., 2.])
 
     _, params = MultiMethod.init(random.PRNGKey(0), x)
     model = nn.Model(MultiMethod, params)
     self.assertEqual(model.l2(), 2.)
-    
+
     y, _ = MultiMethodModel.init(random.PRNGKey(0), x)
     self.assertEqual(y, 2.)
 
   def test_module_state(self):
     class StatefulModule(nn.Module):
-
       def apply(self, x, coll=None):
-        state = self.state('state', x.shape, nn.initializers.zeros,
-                           collection=coll)
+        state = self.state('state', x.shape, nn.initializers.zeros, collection=coll)
         state.value += x
 
-    x = jnp.array([1.,])
+    x = jnp.array([
+        1.,
+    ])
     # no collection should raise an error
     with self.assertRaises(ValueError):
       StatefulModule.call({}, x)
@@ -330,20 +313,20 @@ class ModuleTest(absltest.TestCase):
   def test_parameter_rng(self):
     @nn.module
     def model(x):
-      return nn.Dense(x, features=2, name='dummy',
-                      bias_init=nn.initializers.normal())
+      return nn.Dense(x, features=2, name='dummy', bias_init=nn.initializers.normal())
+
     rng = random.PRNGKey(0)
     _, params = model.init(rng, jnp.ones((1, 1)))
     dense_rng = nn.base._fold_in_str(rng, 'dummy')
     kernel_rng = nn.base._fold_in_str(dense_rng, 'kernel')
     bias_rng = nn.base._fold_in_str(dense_rng, 'bias')
     kernel = nn.linear.default_kernel_init(kernel_rng, (1, 2))
-    bias = nn.initializers.normal()(bias_rng, (2,))
+    bias = nn.initializers.normal()(bias_rng, (2, ))
     onp.testing.assert_allclose(kernel, params['dummy']['kernel'])
     onp.testing.assert_allclose(bias, params['dummy']['bias'])
 
-class CollectionTest(absltest.TestCase):
 
+class CollectionTest(absltest.TestCase):
   def test_collection_store_and_retrieve(self):
     rng = random.PRNGKey(0)
     x = jnp.array([1.])
@@ -384,8 +367,10 @@ class CollectionTest(absltest.TestCase):
 
   def test_mutable_collection_cannot_be_passed_to_jax(self):
     with nn.Collection().mutate() as collection:
+
       def fn(col):
         return col
+
       with self.assertRaises(ValueError):
         jax.jit(fn)(collection)
 
@@ -402,7 +387,6 @@ class CollectionTest(absltest.TestCase):
 
   def test_collection_inside_module(self):
     class NestedCollection(nn.Module):
-
       def apply(self, x):
         with nn.Collection().mutate() as activations:
           LoopModule(x, activations, name='a')
@@ -423,6 +407,7 @@ class CollectionTest(absltest.TestCase):
     def test():
       with nn.Collection().mutate() as coll:
         coll.store(1)
+
     pattern = 'State should be stored from within a module'
     with self.assertRaisesRegex(ValueError, pattern):
       test.init(random.PRNGKey(0))
@@ -444,14 +429,15 @@ class CollectionTest(absltest.TestCase):
     def test():
       f = stateful_module.shared()
       test_inner(f)
+
     pattern = 'Trying to capture state outside the scope'
     with self.assertRaisesRegex(ValueError, pattern):
       test.init(random.PRNGKey(0))
 
   def test_jax_transform_of_stateful_function(self):
     test = self
-    class NestedTransform(nn.Module):
 
+    class NestedTransform(nn.Module):
       def apply(self, state, y):
         def inner_fn(x):
           # constants should be storable
@@ -461,7 +447,8 @@ class CollectionTest(absltest.TestCase):
           with test.assertRaises(ValueError):
             # values depending on the vmap should not be storable
             state.store({'a': y, 'b': x})
-        jax.vmap(inner_fn)(jnp.ones((2,)))
+
+        jax.vmap(inner_fn)(jnp.ones((2, )))
 
     def outer_fn(x):
       with nn.Collection().mutate() as state:
@@ -472,7 +459,6 @@ class CollectionTest(absltest.TestCase):
 
 
 class UtilsTest(absltest.TestCase):
-
   def test_call_stack_happy_path(self):
     stack = nn.utils.CallStack()
     self.assertFalse(stack)
@@ -488,11 +474,13 @@ class UtilsTest(absltest.TestCase):
     self.assertFalse(stack)
     with stack.frame({'id': 1}):
       self.assertEqual(stack[-1], {'id': 1})
+
       def _main():
         # Each thread should have its own stack.
         self.assertFalse(stack)
         with stack.frame({'id': 2}):
           self.assertEqual(stack[-1], {'id': 2})
+
       thread = threading.Thread(target=_main)
       thread.start()
       thread.join()
@@ -507,12 +495,11 @@ class UtilsTest(absltest.TestCase):
 
 
 class PoolTest(absltest.TestCase):
-
   def test_pool_custom_reduce(self):
     x = jnp.full((1, 3, 3, 1), 2.)
     mul_reduce = lambda x, y: x * y
     y = nn.pooling.pool(x, 1., mul_reduce, (2, 2), (1, 1), 'VALID')
-    onp.testing.assert_allclose(y, onp.full((1, 2, 2, 1), 2. ** 4))
+    onp.testing.assert_allclose(y, onp.full((1, 2, 2, 1), 2.**4))
 
   def test_avg_pool(self):
     x = jnp.full((1, 3, 3, 1), 2.)
@@ -546,7 +533,6 @@ class PoolTest(absltest.TestCase):
 
 
 class NormalizationTest(absltest.TestCase):
-
   def test_batch_norm(self):
     rng = random.PRNGKey(0)
     key1, key2 = random.split(rng)
@@ -562,10 +548,8 @@ class NormalizationTest(absltest.TestCase):
     with nn.stateful(state_0) as state:
       y = model(x)
     ema = state['/']
-    onp.testing.assert_allclose(
-        ema['mean'], 0.1 * x.mean((0, 1), keepdims=False), atol=1e-4)
-    onp.testing.assert_allclose(
-        ema['var'], 0.9 + 0.1 * x.var((0, 1), keepdims=False), rtol=1e-4)
+    onp.testing.assert_allclose(ema['mean'], 0.1 * x.mean((0, 1), keepdims=False), atol=1e-4)
+    onp.testing.assert_allclose(ema['var'], 0.9 + 0.1 * x.var((0, 1), keepdims=False), rtol=1e-4)
 
   def test_layer_norm(self):
     rng = random.PRNGKey(0)
@@ -575,7 +559,7 @@ class NormalizationTest(absltest.TestCase):
     y, _ = nn.LayerNorm.init(key2, x, bias=False, scale=False, epsilon=e)
     assert x.shape == y.shape
     input_type = type(x)
-    assert  isinstance(y, input_type)
+    assert isinstance(y, input_type)
     y_one_liner = ((x - x.mean(axis=-1, keepdims=True)) *
                    jax.lax.rsqrt(x.var(axis=-1, keepdims=True) + e))
     onp.testing.assert_allclose(y_one_liner, y, atol=1e-4)
@@ -585,8 +569,7 @@ class NormalizationTest(absltest.TestCase):
     key1, key2 = random.split(rng)
     e = 1e-5
     x = random.normal(key1, (2, 5, 4, 4, 32))
-    y, _ = nn.GroupNorm.init(key2, x, num_groups=2,
-                               bias=True, scale=True, epsilon=e)
+    y, _ = nn.GroupNorm.init(key2, x, num_groups=2, bias=True, scale=True, epsilon=e)
     self.assertEqual(x.shape, y.shape)
     self.assertIsInstance(y, type(x))
 
@@ -600,12 +583,11 @@ class NormalizationTest(absltest.TestCase):
 
 # TODO(flax-dev): add integration tests for RNN cells
 class RecurrentTest(absltest.TestCase):
-
   def test_lstm(self):
     rng = random.PRNGKey(0)
     key1, key2 = random.split(rng)
     x = random.normal(key1, (2, 3))
-    c0, h0 = nn.LSTMCell.initialize_carry(rng, (2,), 4)
+    c0, h0 = nn.LSTMCell.initialize_carry(rng, (2, ), 4)
     self.assertEqual(c0.shape, (2, 4))
     self.assertEqual(h0.shape, (2, 4))
     (carry, y), initial_params = nn.LSTMCell.init(key2, (c0, h0), x)
@@ -614,40 +596,77 @@ class RecurrentTest(absltest.TestCase):
     self.assertEqual(carry[1].shape, (2, 4))
     onp.testing.assert_allclose(y, carry[1])
     param_shapes = jax.tree_map(onp.shape, lstm.params)
-    self.assertEqual(param_shapes, {
-        'ii': {'kernel': (3, 4)},
-        'if': {'kernel': (3, 4)},
-        'ig': {'kernel': (3, 4)},
-        'io': {'kernel': (3, 4)},
-        'hi': {'kernel': (4, 4), 'bias': (4,)},
-        'hf': {'kernel': (4, 4), 'bias': (4,)},
-        'hg': {'kernel': (4, 4), 'bias': (4,)},
-        'ho': {'kernel': (4, 4), 'bias': (4,)},
-    })
+    self.assertEqual(
+        param_shapes, {
+            'ii': {
+                'kernel': (3, 4)
+            },
+            'if': {
+                'kernel': (3, 4)
+            },
+            'ig': {
+                'kernel': (3, 4)
+            },
+            'io': {
+                'kernel': (3, 4)
+            },
+            'hi': {
+                'kernel': (4, 4),
+                'bias': (4, )
+            },
+            'hf': {
+                'kernel': (4, 4),
+                'bias': (4, )
+            },
+            'hg': {
+                'kernel': (4, 4),
+                'bias': (4, )
+            },
+            'ho': {
+                'kernel': (4, 4),
+                'bias': (4, )
+            },
+        })
 
   def test_gru(self):
     rng = random.PRNGKey(0)
     key1, key2 = random.split(rng)
     x = random.normal(key1, (2, 3))
-    carry0 = nn.GRUCell.initialize_carry(rng, (2,), 4)
+    carry0 = nn.GRUCell.initialize_carry(rng, (2, ), 4)
     self.assertEqual(carry0.shape, (2, 4))
     (carry, y), initial_params = nn.GRUCell.init(key2, carry0, x)
     gru = nn.Model(nn.GRUCell, initial_params)
     self.assertEqual(carry.shape, (2, 4))
     onp.testing.assert_allclose(y, carry)
     param_shapes = jax.tree_map(onp.shape, gru.params)
-    self.assertEqual(param_shapes, {
-        'ir': {'kernel': (3, 4), 'bias': (4,)},
-        'iz': {'kernel': (3, 4), 'bias': (4,)},
-        'in': {'kernel': (3, 4), 'bias': (4,)},
-        'hr': {'kernel': (4, 4)},
-        'hz': {'kernel': (4, 4)},
-        'hn': {'kernel': (4, 4), 'bias': (4,)},
-    })
+    self.assertEqual(
+        param_shapes, {
+            'ir': {
+                'kernel': (3, 4),
+                'bias': (4, )
+            },
+            'iz': {
+                'kernel': (3, 4),
+                'bias': (4, )
+            },
+            'in': {
+                'kernel': (3, 4),
+                'bias': (4, )
+            },
+            'hr': {
+                'kernel': (4, 4)
+            },
+            'hz': {
+                'kernel': (4, 4)
+            },
+            'hn': {
+                'kernel': (4, 4),
+                'bias': (4, )
+            },
+        })
 
 
 class StochasticTest(absltest.TestCase):
-
   def test_make_rng_requires_stochastic(self):
     with self.assertRaises(ValueError):
       nn.make_rng()

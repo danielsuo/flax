@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for flax.nn.linear."""
 
 import functools
@@ -33,7 +32,6 @@ jax.config.parse_flags_with_absl()
 
 
 class LinearTest(parameterized.TestCase):
-
   def test_dense(self):
     rng = random.PRNGKey(0)
     x = jnp.ones((1, 3))
@@ -125,10 +123,12 @@ class LinearTest(parameterized.TestCase):
     x = jnp.ones((2, 1, 3, 5))
 
     state = {'counter': 0.}
+
     def _counter_init(rng, shape, dtype, state):
       del rng, dtype
       state['counter'] += 1.
       return jnp.full(shape, state['counter'])
+
     counter_init = functools.partial(_counter_init, state=state)
 
     dg_module = nn.DenseGeneral.partial(
@@ -139,13 +139,11 @@ class LinearTest(parameterized.TestCase):
         kernel_init=counter_init,
     )
     y, _ = dg_module.init(rng, x)
-    target = onp.concatenate(
-        [onp.full((1, 1, 7), 16.), onp.full((1, 1, 7), 31.)], axis=0)
+    target = onp.concatenate([onp.full((1, 1, 7), 16.), onp.full((1, 1, 7), 31.)], axis=0)
     onp.testing.assert_allclose(y, target)
 
-  @parameterized.parameters([((-2, 3), (), 'bijk,jklm->bilm'),
-                             ((3, -2), (), 'bijk,kjlm->bilm'),
-                             ((-2, 3), (0,), 'bijk,bjklm->bilm')])
+  @parameterized.parameters([((-2, 3), (), 'bijk,jklm->bilm'), ((3, -2), (), 'bijk,kjlm->bilm'),
+                             ((-2, 3), (0, ), 'bijk,bjklm->bilm')])
   def test_dense_general_vs_numpy(self, axis, batch_dims, einsum_expr):
     rng = random.PRNGKey(0)
     x = jnp.ones((16, 8, 9, 10))
@@ -167,7 +165,7 @@ class LinearTest(parameterized.TestCase):
     x = jnp.ones((1, 8, 3))
     conv_module = nn.Conv.partial(
         features=4,
-        kernel_size=(3,),
+        kernel_size=(3, ),
         padding='VALID',
         kernel_init=initializers.ones,
         bias_init=initializers.ones,
@@ -182,7 +180,7 @@ class LinearTest(parameterized.TestCase):
     x = jnp.ones((1, 8, 4))
     conv_module = nn.Conv.partial(
         features=4,
-        kernel_size=(3,),
+        kernel_size=(3, ),
         feature_group_count=2,
         padding='VALID',
         kernel_init=initializers.ones,
@@ -198,7 +196,7 @@ class LinearTest(parameterized.TestCase):
     x = jnp.ones((1, 8, 3))
     conv_transpose_module = nn.ConvTranspose.partial(
         features=4,
-        kernel_size=(3,),
+        kernel_size=(3, ),
         padding='VALID',
         kernel_init=initializers.ones,
         bias_init=initializers.ones,
@@ -206,23 +204,16 @@ class LinearTest(parameterized.TestCase):
     y, initial_params = conv_transpose_module.init(rng, x)
     model = nn.Model(conv_transpose_module, initial_params)
     self.assertEqual(model.params['kernel'].shape, (3, 3, 4))
-    correct_ans = onp.array([[[ 4.,  4.,  4.,  4.],
-                              [ 7.,  7.,  7.,  7.],
-                              [10., 10., 10., 10.],
-                              [10., 10., 10., 10.],
-                              [10., 10., 10., 10.],
-                              [10., 10., 10., 10.],
-                              [10., 10., 10., 10.],
-                              [10., 10., 10., 10.],
-                              [ 7.,  7.,  7.,  7.],
-                              [ 4.,  4.,  4.,  4.]]])
+    correct_ans = onp.array([[[4., 4., 4., 4.], [7., 7., 7., 7.], [10., 10., 10., 10.],
+                              [10., 10., 10., 10.], [10., 10., 10., 10.], [10., 10., 10., 10.],
+                              [10., 10., 10., 10.], [10., 10., 10., 10.], [7., 7., 7., 7.],
+                              [4., 4., 4., 4.]]])
     onp.testing.assert_allclose(y, correct_ans)
 
   def test_embed(self):
     rng = random.PRNGKey(0)
     x = jnp.arange(4)[None]
-    dummy_embedding = jnp.broadcast_to(
-        jnp.arange(4)[..., None], (4, 3)).astype(jnp.float32)
+    dummy_embedding = jnp.broadcast_to(jnp.arange(4)[..., None], (4, 3)).astype(jnp.float32)
     embed_module = nn.Embed.partial(
         num_embeddings=4,
         features=3,
@@ -232,7 +223,7 @@ class LinearTest(parameterized.TestCase):
     model = nn.Model(embed_module, initial_params)
     onp.testing.assert_allclose(y, dummy_embedding[None])
 
-    z = model.attend(jnp.ones((3,)))
+    z = model.attend(jnp.ones((3, )))
     onp.testing.assert_allclose(z, 3. * jnp.arange(4))
 
 

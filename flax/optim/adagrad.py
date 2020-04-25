@@ -54,8 +54,7 @@ class Adagrad(OptimizerDef):
 
     assert hyper_params.learning_rate is not None, 'no learning rate provided.'
     new_G = state.G + jnp.square(grad)
-    new_param = param - hyper_params.learning_rate * grad / (jnp.sqrt(new_G) +
-                                                             hyper_params.eps)
+    new_param = param - hyper_params.learning_rate * grad / (jnp.sqrt(new_G) + hyper_params.eps)
     new_state = _AdagradParamState(new_G)
 
     return new_param, new_state

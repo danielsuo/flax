@@ -29,32 +29,20 @@ import tensorflow_datasets as tfds
 
 from utils import save_image
 
-
 FLAGS = flags.FLAGS
 
-flags.DEFINE_float(
-    'learning_rate', default=1e-3,
-    help=('The learning rate for the Adam optimizer.')
-)
+flags.DEFINE_float('learning_rate',
+                   default=1e-3,
+                   help=('The learning rate for the Adam optimizer.'))
 
-flags.DEFINE_integer(
-    'batch_size', default=128,
-    help=('Batch size for training.')
-)
+flags.DEFINE_integer('batch_size', default=128, help=('Batch size for training.'))
 
-flags.DEFINE_integer(
-    'num_epochs', default=30,
-    help=('Number of training epochs.')
-)
+flags.DEFINE_integer('num_epochs', default=30, help=('Number of training epochs.'))
 
-flags.DEFINE_integer(
-    'latents', default=20,
-    help=('Number of latent variables.')
-)
+flags.DEFINE_integer('latents', default=20, help=('Number of latent variables.'))
 
 
 class Encoder(nn.Module):
-
   def apply(self, x, latents):
     x = nn.Dense(x, 500, name='fc1')
     x = nn.relu(x)
@@ -64,7 +52,6 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-
   def apply(self, z):
     z = nn.Dense(z, 500, name='fc1')
     z = nn.relu(z)
@@ -73,7 +60,6 @@ class Decoder(nn.Module):
 
 
 class VAE(nn.Module):
-
   def apply(self, x, z_rng, latents=20):
     decoder = self._create_decoder()
     mean, logvar = Encoder(x, latents, name='encoder')
@@ -110,11 +96,7 @@ def binary_cross_entropy_with_logits(logits, labels):
 def compute_metrics(recon_x, x, mean, logvar):
   bce_loss = binary_cross_entropy_with_logits(recon_x, x).mean()
   kld_loss = kl_divergence(mean, logvar).mean()
-  return {
-      'bce': bce_loss,
-      'kld': kld_loss,
-      'loss': bce_loss + kld_loss
-  }
+  return {'bce': bce_loss, 'kld': kld_loss, 'loss': bce_loss + kld_loss}
 
 
 @jax.jit
@@ -126,6 +108,7 @@ def train_step(optimizer, batch, z_rng):
     kld_loss = kl_divergence(mean, logvar).mean()
     loss = bce_loss + kld_loss
     return loss, recon_x
+
   grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
   _, grad = grad_fn(optimizer.target)
   optimizer = optimizer.apply_gradient(grad)
@@ -136,8 +119,8 @@ def train_step(optimizer, batch, z_rng):
 def eval(model, images, z, z_rng):
   recon_images, mean, logvar = model(images, z_rng)
 
-  comparison = jnp.concatenate([images[:8].reshape(-1, 28, 28, 1),
-                                recon_images[:8].reshape(-1, 28, 28, 1)])
+  comparison = jnp.concatenate(
+      [images[:8].reshape(-1, 28, 28, 1), recon_images[:8].reshape(-1, 28, 28, 1)])
 
   generate_images = model.generate(z)
   generate_images = generate_images.reshape(-1, 28, 28, 1)
@@ -148,7 +131,7 @@ def eval(model, images, z, z_rng):
 
 def prepare_image(x):
   x = tf.cast(x['image'], tf.float32)
-  x = tf.reshape(x, (-1,))
+  x = tf.reshape(x, (-1, ))
   return x
 
 
@@ -173,8 +156,7 @@ def main(argv):
   test_ds = jax.device_put(test_ds)
 
   module = VAE.partial(latents=FLAGS.latents)
-  _, params = module.init_by_shape(
-      key, [(FLAGS.batch_size, 784)], z_rng=random.PRNGKey(0))
+  _, params = module.init_by_shape(key, [(FLAGS.batch_size, 784)], z_rng=random.PRNGKey(0))
   vae = nn.Model(module, params)
 
   optimizer = optim.Adam(learning_rate=FLAGS.learning_rate).create(vae)
@@ -196,8 +178,7 @@ def main(argv):
     save_image(sample, f'results/sample_{epoch}.png', nrow=8)
 
     print('eval epoch: {}, loss: {:.4f}, BCE: {:.4f}, KLD: {:.4f}'.format(
-        epoch + 1, metrics['loss'], metrics['bce'], metrics['kld']
-    ))
+        epoch + 1, metrics['loss'], metrics['bce'], metrics['kld']))
 
 
 if __name__ == '__main__':

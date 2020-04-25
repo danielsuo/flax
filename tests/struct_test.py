@@ -37,7 +37,6 @@ class Point:
 
 
 class StructTest(absltest.TestCase):
-
   def test_no_extra_fields(self):
     p = Point(x=1, y=2, meta={})
     with self.assertRaises(dataclasses.FrozenInstanceError):

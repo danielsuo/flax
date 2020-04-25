@@ -43,7 +43,6 @@ class Point:
 
 
 class SerializationTest(absltest.TestCase):
-
   def test_dataclass_serialization(self):
     p = Point(x=1, y=2, meta={'dummy': True})
     state_dict = serialization.to_state_dict(p)
@@ -66,16 +65,14 @@ class SerializationTest(absltest.TestCase):
     _, initial_params = module.init_by_shape(rng, [((1, 1), jnp.float32)])
     model = nn.Model(module, initial_params)
     state = serialization.to_state_dict(model)
-    self.assertEqual(state, {
-        'params': {
-            'kernel': onp.ones((1, 1)),
-            'bias': onp.zeros((1,)),
-        }
-    })
+    self.assertEqual(state, {'params': {
+        'kernel': onp.ones((1, 1)),
+        'bias': onp.zeros((1, )),
+    }})
     state = {
         'params': {
             'kernel': onp.zeros((1, 1)),
-            'bias': onp.zeros((1,)),
+            'bias': onp.zeros((1, )),
         }
     }
     restored_model = serialization.from_state_dict(model, state)
@@ -93,15 +90,19 @@ class SerializationTest(absltest.TestCase):
         'target': {
             'params': {
                 'kernel': onp.ones((1, 1)),
-                'bias': onp.zeros((1,)),
+                'bias': onp.zeros((1, )),
             }
         },
         'state': {
             'step': 0,
             'param_states': {
                 'params': {
-                    'kernel': {'momentum': onp.zeros((1, 1))},
-                    'bias': {'momentum': onp.zeros((1,))},
+                    'kernel': {
+                        'momentum': onp.zeros((1, 1))
+                    },
+                    'bias': {
+                        'momentum': onp.zeros((1, ))
+                    },
                 }
             }
         },
@@ -113,36 +114,27 @@ class SerializationTest(absltest.TestCase):
     self.assertEqual(restored_optimizer, optimizer_plus1)
 
   def test_numpy_serialization(self):
-    normal_dtypes = ['byte', 'b', 'ubyte', 'short',
-                     'h', 'ushort', 'i', 'uint', 'intp',
-                     'p', 'uintp', 'long', 'l', 'longlong',
-                     'q', 'ulonglong', 'half', 'e', 'f',
-                     'double', 'd', 'longdouble', 'g',
-                     'cfloat', 'cdouble', 'clongdouble', 'm',
-                     'bool8', 'b1', 'int64', 'i8', 'uint64', 'u8',
-                     'float16', 'f2', 'float32', 'f4', 'float64',
-                     'f8', 'float128', 'f16', 'complex64', 'c8',
-                     'complex128', 'c16', 'complex256', 'c32',
-                     'm8', 'int32', 'i4', 'uint32', 'u4', 'int16',
-                     'i2', 'uint16', 'u2', 'int8', 'i1', 'uint8',
-                     'u1', 'complex_', 'int0', 'uint0', 'single',
-                     'csingle', 'singlecomplex', 'float_', 'intc',
-                     'uintc', 'int_', 'longfloat', 'clongfloat',
-                     'longcomplex', 'bool_', 'int', 'float',
-                     'complex', 'bool']
+    normal_dtypes = [
+        'byte', 'b', 'ubyte', 'short', 'h', 'ushort', 'i', 'uint', 'intp', 'p', 'uintp', 'long',
+        'l', 'longlong', 'q', 'ulonglong', 'half', 'e', 'f', 'double', 'd', 'longdouble', 'g',
+        'cfloat', 'cdouble', 'clongdouble', 'm', 'bool8', 'b1', 'int64', 'i8', 'uint64', 'u8',
+        'float16', 'f2', 'float32', 'f4', 'float64', 'f8', 'float128', 'f16', 'complex64', 'c8',
+        'complex128', 'c16', 'complex256', 'c32', 'm8', 'int32', 'i4', 'uint32', 'u4', 'int16',
+        'i2', 'uint16', 'u2', 'int8', 'i1', 'uint8', 'u1', 'complex_', 'int0', 'uint0', 'single',
+        'csingle', 'singlecomplex', 'float_', 'intc', 'uintc', 'int_', 'longfloat', 'clongfloat',
+        'longcomplex', 'bool_', 'int', 'float', 'complex', 'bool'
+    ]
     onp.random.seed(0)
     for dtype in normal_dtypes:
-      for shape in [(), (5,), (10, 10), (1, 20, 30, 1)]:
+      for shape in [(), (5, ), (10, 10), (1, 20, 30, 1)]:
         arr = onp.random.uniform(-100, 100, size=shape).astype(dtype)
-        restored_arr = serialization.msgpack_restore(
-            serialization.msgpack_serialize(arr))
+        restored_arr = serialization.msgpack_restore(serialization.msgpack_serialize(arr))
         self.assertEqual(restored_arr.dtype, arr.dtype)
         onp.testing.assert_array_equal(restored_arr, arr)
 
   def test_complex_serialization(self):
-    for x in [1j, 1+2j]:
-      restored_x = serialization.msgpack_restore(
-          serialization.msgpack_serialize(x))
+    for x in [1j, 1 + 2j]:
+      restored_x = serialization.msgpack_restore(serialization.msgpack_serialize(x))
       self.assertEqual(x, restored_x)
 
   def test_namedtuple_serialization(self):

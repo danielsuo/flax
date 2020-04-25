@@ -27,7 +27,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Utilities we could consider upstreaming to Jax.
 """
 
@@ -46,7 +45,7 @@ def _replicate(x, devices=None):
   x = jax.numpy.array(x)
   if devices is None:
     devices = jax.local_devices()
-  aval = jax.ShapedArray((len(devices),) + x.shape, x.dtype)
+  aval = jax.ShapedArray((len(devices), ) + x.shape, x.dtype)
   buffers = [jax.interpreters.xla.device_put(x, device=d) for d in devices]
   return jax.pxla.ShardedDeviceArray(aval, buffers)
 
@@ -70,8 +69,7 @@ def unreplicate(tree):
 
 
 def pmean(xs, axis_name):
-  warnings.warn('use jax.lax.pmean instead',
-                DeprecationWarning)
+  warnings.warn('use jax.lax.pmean instead', DeprecationWarning)
   return lax.pmean(xs, axis_name)
 
 
@@ -97,6 +95,7 @@ def partial_eval_by_shape(fn, input_spec, *args, **kwargs):
   # return the shape and dtype.
   output_traced = None
   master = None
+
   def lazy_fn(*inputs):
     nonlocal output_traced, master
     leaves = jax.tree_leaves(inputs)
@@ -108,6 +107,7 @@ def partial_eval_by_shape(fn, input_spec, *args, **kwargs):
 
   input_structs = [_parse_spec(spec) for spec in input_spec]
   output_shapes = jax.eval_shape(lazy_fn, *input_structs)
+
   def merge_results(traced, shape):
     # Only return the shape when an output depends on any unknown inputs.
     # pylint: disable=protected-access
@@ -116,6 +116,7 @@ def partial_eval_by_shape(fn, input_spec, *args, **kwargs):
     else:
       return traced
     # pylint: enable=protected-access
+
   return jax.tree_multimap(merge_results, output_traced, output_shapes)
 
 
@@ -147,12 +148,13 @@ def prefetch_to_device(iterator, size, devices=None):
   queue = collections.deque()
   if devices is None:
     devices = jax.local_devices()
+
   def _prefetch(xs):
     aval = jax.xla.abstractify(xs)
     assert xs.shape[0] == len(devices)
-    buffers = [jax.interpreters.xla.device_put(x, devices[i])
-               for i, x in enumerate(xs)]
+    buffers = [jax.interpreters.xla.device_put(x, devices[i]) for i, x in enumerate(xs)]
     return jax.pxla.ShardedDeviceArray(aval, buffers)
+
   try:
     while len(queue) < size:
       queue.append(jax.tree_map(_prefetch, next(iterator)))
@@ -186,8 +188,10 @@ def _scan_nd(body_fn, init, xs, n=1):
   if n == 1:
     return lax.scan(body_fn, init, xs)
   else:
+
     def scan_body(c, x):
-      return _scan_nd(body_fn, c, x, n=n-1)
+      return _scan_nd(body_fn, c, x, n=n - 1)
+
     return lax.scan(scan_body, init, xs)
 
 
@@ -198,7 +202,7 @@ def _invert_perm(perm):
   return tuple(perm_inv)
 
 
-def scan_in_dim(body_fn, init, xs, axis=(0,), keepdims=False):
+def scan_in_dim(body_fn, init, xs, axis=(0, ), keepdims=False):
   """utility for doing a scan along arbitrary dimensions.
 
   see `lax.scan` for details on how the scan operation works.
@@ -212,18 +216,19 @@ def scan_in_dim(body_fn, init, xs, axis=(0,), keepdims=False):
     A tuple of the final carry and the values returned by the body.
   """
   if not isinstance(axis, Iterable):
-    axis = (axis,)
+    axis = (axis, )
 
   def transpose_in(x):
     perm = axis + tuple(onp.delete(onp.arange(x.ndim), axis))
     return x.transpose(perm)
+
   def transpose_out(x):
     perm = axis + tuple(onp.delete(onp.arange(x.ndim), axis))
     return x.transpose(_invert_perm(perm))
 
   def body_wrapper(c, xs):
     if keepdims:
-      xs = jax.tree_map(lambda x: x.reshape((1,) * len(axis) + x.shape), xs)
+      xs = jax.tree_map(lambda x: x.reshape((1, ) * len(axis) + x.shape), xs)
       xs = jax.tree_map(transpose_out, xs)
     c, ys = body_fn(c, xs)
     if keepdims:

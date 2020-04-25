@@ -22,6 +22,7 @@ import numpy as onp
 
 from .base import OptimizerDef
 
+
 @struct.dataclass
 class _LAMBHyperParams:
   learning_rate: onp.ndarray
@@ -42,9 +43,7 @@ class LAMB(OptimizerDef):
 
   See https://arxiv.org/abs/1904.00962
   """
-
-  def __init__(self, learning_rate=None, beta1=0.9, beta2=0.999, weight_decay=0,
-               eps=1e-6):
+  def __init__(self, learning_rate=None, beta1=0.9, beta2=0.999, weight_decay=0, eps=1e-6):
     """Constructor for the LAMB optimizer.
 
     Args:
@@ -57,8 +56,7 @@ class LAMB(OptimizerDef):
       eps: epsilon used for Adam update computation (default: 1e-6).
     """
 
-    hyper_params = _LAMBHyperParams(
-        learning_rate, beta1, beta2, weight_decay, eps)
+    hyper_params = _LAMBHyperParams(learning_rate, beta1, beta2, weight_decay, eps)
     super().__init__(hyper_params)
 
   def init_param_state(self, param):
@@ -75,8 +73,8 @@ class LAMB(OptimizerDef):
     grad_sq_ema = beta2 * state.grad_sq_ema + (1. - beta2) * grad_sq
 
     t = step + 1.
-    grad_ema_corr = grad_ema / (1. - beta1 ** t)
-    grad_sq_ema_corr = grad_sq_ema / (1. - beta2 ** t)
+    grad_ema_corr = grad_ema / (1. - beta1**t)
+    grad_sq_ema_corr = grad_sq_ema / (1. - beta2**t)
 
     update = grad_ema_corr / (jnp.sqrt(grad_sq_ema_corr) + hyper_params.eps)
 
@@ -85,8 +83,7 @@ class LAMB(OptimizerDef):
 
     param_norm = jnp.linalg.norm(param)
     update_norm = jnp.linalg.norm(update)
-    trust_ratio = jnp.where(
-        param_norm + update_norm > 0., param_norm / update_norm, 1.)
+    trust_ratio = jnp.where(param_norm + update_norm > 0., param_norm / update_norm, 1.)
 
     new_param = param - trust_ratio * learning_rate * update
     new_state = _LAMBParamState(grad_ema, grad_sq_ema)

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Transformer-based langauge models."""
 
 from flax import nn
@@ -24,8 +23,7 @@ def shift_right(x, train=True):
   if train:
     pad_widths = [(0, 0)] * len(x.shape)
     pad_widths[1] = (1, 0)  # Padding on axis=1
-    padded = jnp.pad(
-        x, pad_widths, mode='constant', constant_values=x.dtype.type(0))
+    padded = jnp.pad(x, pad_widths, mode='constant', constant_values=x.dtype.type(0))
     return padded[:, :-1]
   else:
     # Do nothing in predict mode, as then the sequence length is 1.
@@ -37,7 +35,6 @@ class Embed(nn.Module):
 
   A parameterized function from integers [0, n) to d-dimensional vectors.
   """
-
   def apply(self,
             inputs,
             num_embeddings,
@@ -74,15 +71,13 @@ def sinusoidal_init(max_len=2048):
   Returns:
       output: init function returning `(1, max_len, d_feature)`
   """
-
   def init(key, shape, dtype=np.float32):
     """Sinusoidal init."""
     del key, dtype
     d_feature = shape[-1]
     pe = np.zeros((max_len, d_feature), dtype=np.float32)
     position = np.arange(0, max_len)[:, np.newaxis]
-    div_term = np.exp(
-        np.arange(0, d_feature, 2) * -(np.log(10000.0) / d_feature))
+    div_term = np.exp(np.arange(0, d_feature, 2) * -(np.log(10000.0) / d_feature))
     pe[:, 0::2] = np.sin(position * div_term)
     pe[:, 1::2] = np.cos(position * div_term)
     pe = pe[np.newaxis, :, :]  # [1, max_len, d_feature]
@@ -93,11 +88,7 @@ def sinusoidal_init(max_len=2048):
 
 class AddPositionEmbs(nn.Module):
   """Adds learned positional embeddings to the inputs."""
-
-  def apply(self,
-            inputs,
-            max_len=2048,
-            posemb_init=nn.initializers.normal(stddev=1.0)):
+  def apply(self, inputs, max_len=2048, posemb_init=nn.initializers.normal(stddev=1.0)):
     """Applies AddPositionEmbs module.
 
     Args:
@@ -108,8 +99,7 @@ class AddPositionEmbs(nn.Module):
     Returns:
       output: `(bs, timesteps, in_dim)`
     """
-    assert inputs.ndim == 3, ('Number of dimention should be 3, but it is: %d' %
-                              inputs.ndim)
+    assert inputs.ndim == 3, ('Number of dimention should be 3, but it is: %d' % inputs.ndim)
     length = inputs.shape[1]
     pos_emb_shape = (1, max_len, inputs.shape[-1])
     pos_embedding = self.param('pos_embedding', pos_emb_shape, posemb_init)
@@ -118,7 +108,6 @@ class AddPositionEmbs(nn.Module):
 
 class MlpBlock(nn.Module):
   """Transformer MLP block."""
-
   def apply(self,
             inputs,
             mlp_dim,
@@ -132,15 +121,13 @@ class MlpBlock(nn.Module):
     x = nn.Dense(inputs, mlp_dim, kernel_init=kernel_init, bias_init=bias_init)
     x = nn.gelu(x)
     x = nn.dropout(x, rate=dropout_rate, deterministic=deterministic)
-    output = nn.Dense(
-        x, actual_out_dim, kernel_init=kernel_init, bias_init=bias_init)
+    output = nn.Dense(x, actual_out_dim, kernel_init=kernel_init, bias_init=bias_init)
     output = nn.dropout(output, rate=dropout_rate, deterministic=deterministic)
     return output
 
 
 class Transformer1DBlock(nn.Module):
   """Transformer layer (https://openreview.net/forum?id=H1e5GJBtDr)."""
-
   def apply(self,
             inputs,
             qkv_dim,
@@ -172,36 +159,30 @@ class Transformer1DBlock(nn.Module):
     # Attention block.
     assert inputs.ndim == 3
     x = nn.LayerNorm(inputs)
-    x = nn.SelfAttention(
-        x,
-        num_heads=num_heads,
-        qkv_features=qkv_dim,
-        attention_axis=(1,),
-        causal_mask=causal_mask,
-        padding_mask=padding_mask,
-        kernel_init=nn.initializers.xavier_uniform(),
-        bias_init=nn.initializers.normal(stddev=1e-6),
-        bias=False,
-        broadcast_dropout=False,
-        dropout_rate=attention_dropout_rate,
-        deterministic=deterministic)
+    x = nn.SelfAttention(x,
+                         num_heads=num_heads,
+                         qkv_features=qkv_dim,
+                         attention_axis=(1, ),
+                         causal_mask=causal_mask,
+                         padding_mask=padding_mask,
+                         kernel_init=nn.initializers.xavier_uniform(),
+                         bias_init=nn.initializers.normal(stddev=1e-6),
+                         bias=False,
+                         broadcast_dropout=False,
+                         dropout_rate=attention_dropout_rate,
+                         deterministic=deterministic)
     x = nn.dropout(x, rate=dropout_rate, deterministic=deterministic)
     x = x + inputs
 
     # MLP block.
     y = nn.LayerNorm(x)
-    y = MlpBlock(
-        y,
-        mlp_dim=mlp_dim,
-        dropout_rate=dropout_rate,
-        deterministic=deterministic)
+    y = MlpBlock(y, mlp_dim=mlp_dim, dropout_rate=dropout_rate, deterministic=deterministic)
 
     return x + y
 
 
 class Transformer(nn.Module):
   """Transformer Model for sequence tagging."""
-
   def apply(self,
             inputs,
             vocab_size,
@@ -241,8 +222,7 @@ class Transformer(nn.Module):
     x = inputs.astype('int32')
     x = Embed(x, num_embeddings=vocab_size, features=emb_dim, name='embed')
     x = nn.dropout(x, rate=dropout_rate, deterministic=not train)
-    x = AddPositionEmbs(
-        x, max_len=max_len, posemb_init=sinusoidal_init(max_len=max_len))
+    x = AddPositionEmbs(x, max_len=max_len, posemb_init=sinusoidal_init(max_len=max_len))
     for _ in range(num_layers):
       x = Transformer1DBlock(
           x,
@@ -256,9 +236,8 @@ class Transformer(nn.Module):
           deterministic=not train,
       )
     x = nn.LayerNorm(x)
-    logits = nn.Dense(
-        x,
-        output_vocab_size,
-        kernel_init=nn.initializers.xavier_uniform(),
-        bias_init=nn.initializers.normal(stddev=1e-6))
+    logits = nn.Dense(x,
+                      output_vocab_size,
+                      kernel_init=nn.initializers.xavier_uniform(),
+                      bias_init=nn.initializers.normal(stddev=1e-6))
     return logits

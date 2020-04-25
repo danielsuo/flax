@@ -23,13 +23,11 @@ from jax import lax
 from jax import random
 import jax.numpy as jnp
 
-
 _prng_stack = utils.CallStack()
 
 
 class _PRNGFrame:
   """Random Number generator scope responsible for generation prngs in a stochastic context."""
-
   def __init__(self, rng):
     self.base_rng = rng
     self.counter = 0

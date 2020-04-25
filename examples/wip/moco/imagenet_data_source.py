@@ -25,7 +25,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """ImageNet input pipeline.
 """
 
@@ -36,10 +35,8 @@ import jax
 import tensorflow.compat.v2 as tf
 import tensorflow_datasets as tfds
 
-
 TRAIN_IMAGES = 1281167
 TEST_IMAGES = 50000
-
 
 MEAN_RGB = [0.485 * 255, 0.456 * 255, 0.406 * 255]
 STDDEV_RGB = [0.229 * 255, 0.224 * 255, 0.225 * 255]
@@ -51,11 +48,13 @@ def normalize_image(image):
   return image
 
 
-def random_crop(image,
-                min_object_covered=0.1,
-                aspect_ratio_range=(0.75, 1.33),
-                area_range=(0.05, 1.0),
-                max_attempts=100,):
+def random_crop(
+    image,
+    min_object_covered=0.1,
+    aspect_ratio_range=(0.75, 1.33),
+    area_range=(0.05, 1.0),
+    max_attempts=100,
+):
   """Randomly crop an input image.
 
   Args:
@@ -84,8 +83,7 @@ def random_crop(image,
   bbox_begin, bbox_size, _ = sample_distorted_bounding_box
   offset_y, offset_x, _ = tf.unstack(bbox_begin)
   target_height, target_width, _ = tf.unstack(bbox_size)
-  crop = tf.image.crop_to_bounding_box(image, offset_y, offset_x,
-                                       target_height, target_width)
+  crop = tf.image.crop_to_bounding_box(image, offset_y, offset_x, target_height, target_width)
   return crop
 
 
@@ -104,14 +102,13 @@ def center_crop(image, image_size, crop_padding=32):
   image_width = shape[1]
 
   padded_center_crop_size = tf.cast(
-      ((image_size / (image_size + crop_padding)) *
-       tf.cast(tf.minimum(image_height, image_width), tf.float32)),
+      ((image_size /
+        (image_size + crop_padding)) * tf.cast(tf.minimum(image_height, image_width), tf.float32)),
       tf.int32)
 
   offset_height = ((image_height - padded_center_crop_size) + 1) // 2
   offset_width = ((image_width - padded_center_crop_size) + 1) // 2
-  crop = tf.image.crop_to_bounding_box(image, offset_height, offset_width,
-                                       padded_center_crop_size,
+  crop = tf.image.crop_to_bounding_box(image, offset_height, offset_width, padded_center_crop_size,
                                        padded_center_crop_size)
   return crop
 
@@ -122,6 +119,7 @@ def colour_jitter(image, greyscale_prob=0.0):
   # fail on greyscale images
   image = image * tf.ones([1, 1, 3], dtype=image.dtype)
   if greyscale_prob > 0.0:
+
     def f_grey():
       return tf.image.rgb_to_grayscale(image)
 
@@ -152,10 +150,8 @@ def preprocess_train_image(image, greyscale_prob=0.0, image_size=224):
     The pre-processed image.
   """
   image = random_crop(image)
-  image = tf.image.resize([image],
-                          [image_size, image_size],
-                          method=tf.image.ResizeMethod.BICUBIC
-                         )[0]
+  image = tf.image.resize([image], [image_size, image_size],
+                          method=tf.image.ResizeMethod.BICUBIC)[0]
   # Randomly flip the image horizontally.
   image = tf.image.random_flip_left_right(image)
 
@@ -175,10 +171,8 @@ def preprocess_eval_image(image, image_size=224):
     The pre-processed image.
   """
   image = center_crop(image, image_size)
-  image = tf.image.resize([image],
-                          [image_size, image_size],
-                          method=tf.image.ResizeMethod.BICUBIC
-                         )[0]
+  image = tf.image.resize([image], [image_size, image_size],
+                          method=tf.image.ResizeMethod.BICUBIC)[0]
   image = normalize_image(image)
   return image
 
@@ -195,12 +189,14 @@ def _load_tfds_imagenet(split_name, n_total):
 
 ImageNetDataSource = collections.namedtuple(
     'ImageNetDataSource',
-    ['n_train', 'n_test', 'n_classes',
-     'train_moco_ds', 'train_clf_ds', 'test_ds'])
+    ['n_train', 'n_test', 'n_classes', 'train_moco_ds', 'train_clf_ds', 'test_ds'])
 
 
-def load_imagenet(train_batch_size, eval_batch_size,
-                  greyscale_prob=0.0, image_size=224, shuffle_seed=1):
+def load_imagenet(train_batch_size,
+                  eval_batch_size,
+                  greyscale_prob=0.0,
+                  image_size=224,
+                  shuffle_seed=1):
   """Load ImageNet 2012.
 
   Args:
@@ -224,21 +220,25 @@ def load_imagenet(train_batch_size, eval_batch_size,
 
   def _augment_moco_sample(sample):
     aug_sample = {
-        'key_image': preprocess_train_image(
-            sample['image'], greyscale_prob=greyscale_prob,
-            image_size=image_size),
-        'query_image': preprocess_train_image(
-            sample['image'], greyscale_prob=greyscale_prob,
-            image_size=image_size),
+        'key_image':
+        preprocess_train_image(sample['image'],
+                               greyscale_prob=greyscale_prob,
+                               image_size=image_size),
+        'query_image':
+        preprocess_train_image(sample['image'],
+                               greyscale_prob=greyscale_prob,
+                               image_size=image_size),
     }
     return aug_sample
 
   def _augment_clf_sample(sample):
     aug_sample = {
-        'image': preprocess_train_image(
-            sample['image'], greyscale_prob=greyscale_prob,
-            image_size=image_size),
-        'label': sample['label'],
+        'image':
+        preprocess_train_image(sample['image'],
+                               greyscale_prob=greyscale_prob,
+                               image_size=image_size),
+        'label':
+        sample['label'],
     }
     return aug_sample
 
@@ -248,21 +248,15 @@ def load_imagenet(train_batch_size, eval_batch_size,
     return eval_sample
 
   train_moco_ds = train_ds.repeat()
-  train_moco_ds = train_moco_ds.shuffle(16 * train_batch_size,
-                                        seed=shuffle_seed)
-  train_moco_ds = train_moco_ds.map(_augment_moco_sample,
-                                    num_parallel_calls=128)
+  train_moco_ds = train_moco_ds.shuffle(16 * train_batch_size, seed=shuffle_seed)
+  train_moco_ds = train_moco_ds.map(_augment_moco_sample, num_parallel_calls=128)
 
   train_clf_ds = train_ds.repeat()
-  train_clf_ds = train_clf_ds.shuffle(16 * train_batch_size,
-                                      seed=shuffle_seed)
-  train_clf_ds = train_clf_ds.map(_augment_clf_sample,
-                                  num_parallel_calls=128)
+  train_clf_ds = train_clf_ds.shuffle(16 * train_batch_size, seed=shuffle_seed)
+  train_clf_ds = train_clf_ds.map(_augment_clf_sample, num_parallel_calls=128)
 
-  train_moco_ds = train_moco_ds.batch(train_batch_size,
-                                      drop_remainder=True)
-  train_clf_ds = train_clf_ds.batch(train_batch_size,
-                                    drop_remainder=True)
+  train_moco_ds = train_moco_ds.batch(train_batch_size, drop_remainder=True)
+  train_clf_ds = train_clf_ds.batch(train_batch_size, drop_remainder=True)
 
   train_moco_ds = train_moco_ds.prefetch(10)
   train_clf_ds = train_clf_ds.prefetch(10)
@@ -279,9 +273,9 @@ def load_imagenet(train_batch_size, eval_batch_size,
   test_ds = test_ds.repeat()
   test_ds = test_ds.prefetch(10)
 
-  return ImageNetDataSource(
-      n_train=TRAIN_IMAGES, n_test=TEST_IMAGES, n_classes=1000,
-      train_moco_ds=train_moco_ds, train_clf_ds=train_clf_ds,
-      test_ds=test_ds)
-
-
+  return ImageNetDataSource(n_train=TRAIN_IMAGES,
+                            n_test=TEST_IMAGES,
+                            n_classes=1000,
+                            train_moco_ds=train_moco_ds,
+                            train_clf_ds=train_clf_ds,
+                            test_ds=test_ds)

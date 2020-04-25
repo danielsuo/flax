@@ -26,7 +26,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Transformer-based machine translation model."""
 
 from flax import nn
@@ -39,14 +38,11 @@ def shift_right(x, axis=1):
   """Shift the input to the right by padding on axis 1."""
   pad_widths = [(0, 0)] * len(x.shape)
   pad_widths[axis] = (1, 0)
-  padded = jnp.pad(
-      x, pad_widths, mode='constant', constant_values=x.dtype.type(0))
+  padded = jnp.pad(x, pad_widths, mode='constant', constant_values=x.dtype.type(0))
   return padded[:, :-1]
 
 
-def sinusoidal_init(max_len=2048,
-                    min_scale=1.0,
-                    max_scale=10000.0):
+def sinusoidal_init(max_len=2048, min_scale=1.0, max_scale=10000.0):
   """1D Sinusoidal Position Embedding Initializer.
 
   Args:
@@ -57,7 +53,6 @@ def sinusoidal_init(max_len=2048,
   Returns:
       output: init function returning `(1, max_len, d_feature)`
   """
-
   def init(key, shape, dtype=np.float32):
     """Sinusoidal init."""
     del key, dtype
@@ -67,7 +62,7 @@ def sinusoidal_init(max_len=2048,
     scale_factor = -np.log(max_scale / min_scale) / (d_feature // 2 - 1)
     div_term = min_scale * np.exp(np.arange(0, d_feature // 2) * scale_factor)
     pe[:, :d_feature // 2] = np.sin(position * div_term)
-    pe[:, d_feature // 2: 2 * (d_feature // 2)] = np.cos(position * div_term)
+    pe[:, d_feature // 2:2 * (d_feature // 2)] = np.cos(position * div_term)
     pe = pe[np.newaxis, :, :]  # [1, max_len, d_feature]
     return jnp.array(pe)
 
@@ -76,13 +71,7 @@ def sinusoidal_init(max_len=2048,
 
 class AddPositionEmbs(nn.Module):
   """Adds (optionally learned) positional embeddings to the inputs."""
-
-  def apply(self,
-            inputs,
-            inputs_positions=None,
-            max_len=512,
-            posemb_init=None,
-            cache=None):
+  def apply(self, inputs, inputs_positions=None, max_len=512, posemb_init=None, cache=None):
     """Applies AddPositionEmbs module.
 
     By default this layer uses a fixed sinusoidal embedding table. If a
@@ -101,14 +90,12 @@ class AddPositionEmbs(nn.Module):
       output: `(bs, timesteps, in_dim)`
     """
     # inputs.shape = (batch_size, seq_len, emb_dim)
-    assert inputs.ndim == 3, ('Number of dimensions should be 3,'
-                              ' but it is: %d' % inputs.ndim)
+    assert inputs.ndim == 3, ('Number of dimensions should be 3,' ' but it is: %d' % inputs.ndim)
     length = inputs.shape[1]
     pos_emb_shape = (1, max_len, inputs.shape[-1])
     if posemb_init is None:
       # Use a fixed (non-learned) sinusoidal position embedding.
-      pos_embedding = sinusoidal_init(
-          max_len=max_len)(None, pos_emb_shape, None)
+      pos_embedding = sinusoidal_init(max_len=max_len)(None, pos_emb_shape, None)
     else:
       pos_embedding = self.param('pos_embedding', pos_emb_shape, posemb_init)
     pe = pos_embedding[:, :length, :]
@@ -124,9 +111,7 @@ class AddPositionEmbs(nn.Module):
         i = cache_entry.i
         cache.store(cache_entry.replace(i=cache_entry.i + 1))
         _, _, df = pos_embedding.shape
-        pe = lax.dynamic_slice(pos_embedding,
-                               jnp.array((0, i, 0)),
-                               jnp.array((1, 1, df)))
+        pe = lax.dynamic_slice(pos_embedding, jnp.array((0, i, 0)), jnp.array((1, 1, df)))
     if inputs_positions is None:
       # normal unpacked case:
       return inputs + pe
@@ -137,7 +122,6 @@ class AddPositionEmbs(nn.Module):
 
 class MlpBlock(nn.Module):
   """Transformer MLP / feed-forward block."""
-
   def apply(self,
             inputs,
             mlp_dim,
@@ -149,19 +133,16 @@ class MlpBlock(nn.Module):
             bias_init=nn.initializers.normal(stddev=1e-6)):
     """Applies Transformer MlpBlock module."""
     actual_out_dim = inputs.shape[-1] if out_dim is None else out_dim
-    x = nn.Dense(inputs, mlp_dim, dtype=dtype, kernel_init=kernel_init,
-                 bias_init=bias_init)
+    x = nn.Dense(inputs, mlp_dim, dtype=dtype, kernel_init=kernel_init, bias_init=bias_init)
     x = nn.relu(x)
     x = nn.dropout(x, rate=dropout_rate, deterministic=deterministic)
-    output = nn.Dense(x, actual_out_dim, dtype=dtype, kernel_init=kernel_init,
-                      bias_init=bias_init)
+    output = nn.Dense(x, actual_out_dim, dtype=dtype, kernel_init=kernel_init, bias_init=bias_init)
     output = nn.dropout(output, rate=dropout_rate, deterministic=deterministic)
     return output
 
 
 class Encoder1DBlock(nn.Module):
   """Transformer decoder layer."""
-
   def apply(self,
             inputs,
             qkv_dim,
@@ -194,40 +175,37 @@ class Encoder1DBlock(nn.Module):
     # Attention block.
     assert inputs.ndim == 3
     x = nn.LayerNorm(inputs, dtype=dtype)
-    x = nn.SelfAttention(
-        x,
-        num_heads=num_heads,
-        dtype=dtype,
-        inputs_kv=x,
-        qkv_features=qkv_dim,
-        attention_axis=(1,),
-        causal_mask=False,
-        segmentation=inputs_segmentation,
-        padding_mask=padding_mask,
-        kernel_init=nn.initializers.xavier_uniform(),
-        bias_init=nn.initializers.normal(stddev=1e-6),
-        bias=False,
-        broadcast_dropout=False,
-        dropout_rate=attention_dropout_rate,
-        deterministic=deterministic)
+    x = nn.SelfAttention(x,
+                         num_heads=num_heads,
+                         dtype=dtype,
+                         inputs_kv=x,
+                         qkv_features=qkv_dim,
+                         attention_axis=(1, ),
+                         causal_mask=False,
+                         segmentation=inputs_segmentation,
+                         padding_mask=padding_mask,
+                         kernel_init=nn.initializers.xavier_uniform(),
+                         bias_init=nn.initializers.normal(stddev=1e-6),
+                         bias=False,
+                         broadcast_dropout=False,
+                         dropout_rate=attention_dropout_rate,
+                         deterministic=deterministic)
     x = nn.dropout(x, rate=dropout_rate, deterministic=deterministic)
     x = x + inputs
 
     # MLP block.
     y = nn.LayerNorm(x, dtype=dtype)
-    y = MlpBlock(
-        y,
-        mlp_dim=mlp_dim,
-        dtype=dtype,
-        dropout_rate=dropout_rate,
-        deterministic=deterministic)
+    y = MlpBlock(y,
+                 mlp_dim=mlp_dim,
+                 dtype=dtype,
+                 dropout_rate=dropout_rate,
+                 deterministic=deterministic)
 
     return x + y
 
 
 class EncoderDecoder1DBlock(nn.Module):
   """Transformer encoder-decoder layer."""
-
   def apply(self,
             targets,
             encoded,
@@ -269,64 +247,60 @@ class EncoderDecoder1DBlock(nn.Module):
     # Decoder block.
     assert targets.ndim == 3
     x = nn.LayerNorm(targets, dtype=dtype)
-    x = nn.SelfAttention(
-        x,
-        num_heads=num_heads,
-        dtype=dtype,
-        inputs_kv=x,
-        qkv_features=qkv_dim,
-        attention_axis=(1,),
-        causal_mask=True,
-        padding_mask=padding_mask,
-        segmentation=targets_segmentation,
-        kernel_init=nn.initializers.xavier_uniform(),
-        bias_init=nn.initializers.normal(stddev=1e-6),
-        bias=False,
-        broadcast_dropout=False,
-        dropout_rate=attention_dropout_rate,
-        deterministic=deterministic,
-        cache=cache)
+    x = nn.SelfAttention(x,
+                         num_heads=num_heads,
+                         dtype=dtype,
+                         inputs_kv=x,
+                         qkv_features=qkv_dim,
+                         attention_axis=(1, ),
+                         causal_mask=True,
+                         padding_mask=padding_mask,
+                         segmentation=targets_segmentation,
+                         kernel_init=nn.initializers.xavier_uniform(),
+                         bias_init=nn.initializers.normal(stddev=1e-6),
+                         bias=False,
+                         broadcast_dropout=False,
+                         dropout_rate=attention_dropout_rate,
+                         deterministic=deterministic,
+                         cache=cache)
     x = nn.dropout(x, rate=dropout_rate, deterministic=deterministic)
     x = x + targets
 
     # Encoder-Decoder block.
     y = nn.LayerNorm(x, dtype=dtype)
-    y = nn.SelfAttention(
-        y,
-        num_heads=num_heads,
-        dtype=dtype,
-        inputs_kv=encoded,
-        qkv_features=qkv_dim,
-        attention_axis=(1,),
-        causal_mask=False,
-        padding_mask=padding_mask,
-        key_padding_mask=key_padding_mask,
-        segmentation=targets_segmentation,
-        key_segmentation=inputs_segmentation,
-        kernel_init=nn.initializers.xavier_uniform(),
-        bias_init=nn.initializers.normal(stddev=1e-6),
-        bias=False,
-        broadcast_dropout=False,
-        dropout_rate=attention_dropout_rate,
-        deterministic=deterministic)
+    y = nn.SelfAttention(y,
+                         num_heads=num_heads,
+                         dtype=dtype,
+                         inputs_kv=encoded,
+                         qkv_features=qkv_dim,
+                         attention_axis=(1, ),
+                         causal_mask=False,
+                         padding_mask=padding_mask,
+                         key_padding_mask=key_padding_mask,
+                         segmentation=targets_segmentation,
+                         key_segmentation=inputs_segmentation,
+                         kernel_init=nn.initializers.xavier_uniform(),
+                         bias_init=nn.initializers.normal(stddev=1e-6),
+                         bias=False,
+                         broadcast_dropout=False,
+                         dropout_rate=attention_dropout_rate,
+                         deterministic=deterministic)
     y = nn.dropout(y, rate=dropout_rate, deterministic=deterministic)
     y = y + x
 
     # MLP block.
     z = nn.LayerNorm(y, dtype=dtype)
-    z = MlpBlock(
-        z,
-        mlp_dim=mlp_dim,
-        dtype=dtype,
-        dropout_rate=dropout_rate,
-        deterministic=deterministic)
+    z = MlpBlock(z,
+                 mlp_dim=mlp_dim,
+                 dtype=dtype,
+                 dropout_rate=dropout_rate,
+                 deterministic=deterministic)
 
     return y + z
 
 
 class Encoder(nn.Module):
   """Transformer Model Encoder for sequence to sequence translation."""
-
   def apply(self,
             inputs,
             vocab_size,
@@ -372,19 +346,17 @@ class Encoder(nn.Module):
 
     # Input Embedding
     if shared_embedding is None:
-      input_embed = nn.Embed.partial(
-          num_embeddings=vocab_size,
-          features=emb_dim,
-          embedding_init=nn.initializers.normal(stddev=1.0))
+      input_embed = nn.Embed.partial(num_embeddings=vocab_size,
+                                     features=emb_dim,
+                                     embedding_init=nn.initializers.normal(stddev=1.0))
     else:
       input_embed = shared_embedding
     x = inputs.astype('int32')
     x = input_embed(x)
-    x = AddPositionEmbs(
-        x,
-        inputs_positions=inputs_positions,
-        max_len=max_len,
-        name='posembed_input')
+    x = AddPositionEmbs(x,
+                        inputs_positions=inputs_positions,
+                        max_len=max_len,
+                        name='posembed_input')
     x = nn.dropout(x, rate=dropout_rate, deterministic=not train)
 
     if use_bfloat16:
@@ -395,18 +367,17 @@ class Encoder(nn.Module):
 
     # Input Encoder
     for lyr in range(num_layers):
-      x = Encoder1DBlock(
-          x,
-          qkv_dim=qkv_dim,
-          mlp_dim=mlp_dim,
-          num_heads=num_heads,
-          dtype=dtype,
-          padding_mask=src_padding_mask,
-          inputs_segmentation=inputs_segmentation,
-          dropout_rate=dropout_rate,
-          attention_dropout_rate=attention_dropout_rate,
-          deterministic=not train,
-          name=f'encoderblock_{lyr}')
+      x = Encoder1DBlock(x,
+                         qkv_dim=qkv_dim,
+                         mlp_dim=mlp_dim,
+                         num_heads=num_heads,
+                         dtype=dtype,
+                         padding_mask=src_padding_mask,
+                         inputs_segmentation=inputs_segmentation,
+                         dropout_rate=dropout_rate,
+                         attention_dropout_rate=attention_dropout_rate,
+                         deterministic=not train,
+                         name=f'encoderblock_{lyr}')
     encoded = nn.LayerNorm(x, dtype=dtype, name='encoder_norm')
 
     return encoded
@@ -414,7 +385,6 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
   """Transformer Model Decoder for sequence to sequence translation."""
-
   def apply(self,
             encoded,
             src_padding_mask,
@@ -477,10 +447,9 @@ class Decoder(nn.Module):
 
     # Target Embedding
     if shared_embedding is None:
-      output_embed = nn.Embed.partial(
-          num_embeddings=output_vocab_size,
-          features=emb_dim,
-          embedding_init=nn.initializers.normal(stddev=1.0))
+      output_embed = nn.Embed.partial(num_embeddings=output_vocab_size,
+                                      features=emb_dim,
+                                      embedding_init=nn.initializers.normal(stddev=1.0))
     else:
       output_embed = shared_embedding
 
@@ -488,12 +457,11 @@ class Decoder(nn.Module):
     if shift:
       y = shift_right(y)
     y = output_embed(y)
-    y = AddPositionEmbs(
-        y,
-        inputs_positions=targets_positions,
-        max_len=max_len,
-        cache=cache,
-        name='posembed_output')
+    y = AddPositionEmbs(y,
+                        inputs_positions=targets_positions,
+                        max_len=max_len,
+                        cache=cache,
+                        name='posembed_output')
     y = nn.dropout(y, rate=dropout_rate, deterministic=not train)
 
     if use_bfloat16:
@@ -504,22 +472,21 @@ class Decoder(nn.Module):
 
     # Target-Input Decoder
     for lyr in range(num_layers):
-      y = EncoderDecoder1DBlock(
-          y,
-          encoded,
-          qkv_dim=qkv_dim,
-          mlp_dim=mlp_dim,
-          num_heads=num_heads,
-          dtype=dtype,
-          padding_mask=tgt_padding_mask,
-          key_padding_mask=src_padding_mask,
-          inputs_segmentation=inputs_segmentation,
-          targets_segmentation=targets_segmentation,
-          dropout_rate=dropout_rate,
-          attention_dropout_rate=attention_dropout_rate,
-          deterministic=not train,
-          cache=cache,
-          name=f'encoderdecoderblock_{lyr}')
+      y = EncoderDecoder1DBlock(y,
+                                encoded,
+                                qkv_dim=qkv_dim,
+                                mlp_dim=mlp_dim,
+                                num_heads=num_heads,
+                                dtype=dtype,
+                                padding_mask=tgt_padding_mask,
+                                key_padding_mask=src_padding_mask,
+                                inputs_segmentation=inputs_segmentation,
+                                targets_segmentation=targets_segmentation,
+                                dropout_rate=dropout_rate,
+                                attention_dropout_rate=attention_dropout_rate,
+                                deterministic=not train,
+                                cache=cache,
+                                name=f'encoderdecoderblock_{lyr}')
     y = nn.LayerNorm(y, dtype=dtype, name='encoderdecoder_norm')
 
     # Decoded Logits
@@ -529,13 +496,12 @@ class Decoder(nn.Module):
       # Correctly normalize pre-softmax logits for this shared case.
       logits = logits / jnp.sqrt(y.shape[-1])
     else:
-      logits = nn.Dense(
-          y,
-          output_vocab_size,
-          dtype=dtype,
-          kernel_init=nn.initializers.xavier_uniform(),
-          bias_init=nn.initializers.normal(stddev=1e-6),
-          name='logitdense')
+      logits = nn.Dense(y,
+                        output_vocab_size,
+                        dtype=dtype,
+                        kernel_init=nn.initializers.xavier_uniform(),
+                        bias_init=nn.initializers.normal(stddev=1e-6),
+                        name='logitdense')
     return logits
 
 
@@ -547,7 +513,6 @@ class Decoder(nn.Module):
 
 class Transformer(nn.Module):
   """Transformer Model for sequence to sequence translation."""
-
   def apply(self,
             inputs,
             targets,
@@ -610,53 +575,50 @@ class Transformer(nn.Module):
       if output_vocab_size is not None:
         assert output_vocab_size == vocab_size, (
             "can't share embedding with different vocab sizes.")
-      shared_embedding = nn.Embed.shared(
-          num_embeddings=vocab_size,
-          features=emb_dim,
-          embedding_init=nn.initializers.normal(stddev=1.0))
+      shared_embedding = nn.Embed.shared(num_embeddings=vocab_size,
+                                         features=emb_dim,
+                                         embedding_init=nn.initializers.normal(stddev=1.0))
     else:
       shared_embedding = None
 
-    encoded = Encoder(
-        inputs,
-        inputs_positions=inputs_positions,
-        inputs_segmentation=inputs_segmentation,
-        vocab_size=vocab_size,
-        shared_embedding=shared_embedding,
-        use_bfloat16=use_bfloat16,
-        emb_dim=emb_dim,
-        num_heads=num_heads,
-        num_layers=num_layers,
-        qkv_dim=qkv_dim,
-        mlp_dim=mlp_dim,
-        max_len=max_len,
-        train=train,
-        dropout_rate=dropout_rate,
-        attention_dropout_rate=attention_dropout_rate,
-        name='encoder')
+    encoded = Encoder(inputs,
+                      inputs_positions=inputs_positions,
+                      inputs_segmentation=inputs_segmentation,
+                      vocab_size=vocab_size,
+                      shared_embedding=shared_embedding,
+                      use_bfloat16=use_bfloat16,
+                      emb_dim=emb_dim,
+                      num_heads=num_heads,
+                      num_layers=num_layers,
+                      qkv_dim=qkv_dim,
+                      mlp_dim=mlp_dim,
+                      max_len=max_len,
+                      train=train,
+                      dropout_rate=dropout_rate,
+                      attention_dropout_rate=attention_dropout_rate,
+                      name='encoder')
 
-    logits = Decoder(
-        encoded,
-        src_padding_mask,
-        targets,
-        targets_positions=targets_positions,
-        inputs_segmentation=inputs_segmentation,
-        targets_segmentation=targets_segmentation,
-        output_vocab_size=output_vocab_size,
-        shared_embedding=shared_embedding,
-        logits_via_embedding=logits_via_embedding,
-        use_bfloat16=use_bfloat16,
-        emb_dim=emb_dim,
-        num_heads=num_heads,
-        num_layers=num_layers,
-        qkv_dim=qkv_dim,
-        mlp_dim=mlp_dim,
-        max_len=max_len,
-        train=train,
-        dropout_rate=dropout_rate,
-        attention_dropout_rate=attention_dropout_rate,
-        cache=cache,
-        name='decoder')
+    logits = Decoder(encoded,
+                     src_padding_mask,
+                     targets,
+                     targets_positions=targets_positions,
+                     inputs_segmentation=inputs_segmentation,
+                     targets_segmentation=targets_segmentation,
+                     output_vocab_size=output_vocab_size,
+                     shared_embedding=shared_embedding,
+                     logits_via_embedding=logits_via_embedding,
+                     use_bfloat16=use_bfloat16,
+                     emb_dim=emb_dim,
+                     num_heads=num_heads,
+                     num_layers=num_layers,
+                     qkv_dim=qkv_dim,
+                     mlp_dim=mlp_dim,
+                     max_len=max_len,
+                     train=train,
+                     dropout_rate=dropout_rate,
+                     attention_dropout_rate=attention_dropout_rate,
+                     cache=cache,
+                     name='decoder')
     return logits.astype(jnp.float32) if use_bfloat16 else logits
 
   # The following two methods allow us to run the trained Transformer in
@@ -689,35 +651,32 @@ class Transformer(nn.Module):
              dropout_rate=0.1,
              attention_dropout_rate=0.1,
              cache=None):
-    del (output_vocab_size, shift, targets_positions,
-         targets_segmentation, tgt_padding_mask, logits_via_embedding,
-         cache)
+    del (output_vocab_size, shift, targets_positions, targets_segmentation, tgt_padding_mask,
+         logits_via_embedding, cache)
 
     if share_embeddings:
-      shared_embedding = nn.Embed.shared(
-          num_embeddings=vocab_size,
-          features=emb_dim,
-          embedding_init=nn.initializers.normal(stddev=1.0))
+      shared_embedding = nn.Embed.shared(num_embeddings=vocab_size,
+                                         features=emb_dim,
+                                         embedding_init=nn.initializers.normal(stddev=1.0))
     else:
       shared_embedding = None
 
-    encoded = Encoder(
-        inputs,
-        inputs_positions=inputs_positions,
-        inputs_segmentation=inputs_segmentation,
-        vocab_size=vocab_size,
-        shared_embedding=shared_embedding,
-        use_bfloat16=use_bfloat16,
-        emb_dim=emb_dim,
-        num_heads=num_heads,
-        num_layers=num_layers,
-        qkv_dim=qkv_dim,
-        mlp_dim=mlp_dim,
-        max_len=max_len,
-        train=train,
-        dropout_rate=dropout_rate,
-        attention_dropout_rate=attention_dropout_rate,
-        name='encoder')
+    encoded = Encoder(inputs,
+                      inputs_positions=inputs_positions,
+                      inputs_segmentation=inputs_segmentation,
+                      vocab_size=vocab_size,
+                      shared_embedding=shared_embedding,
+                      use_bfloat16=use_bfloat16,
+                      emb_dim=emb_dim,
+                      num_heads=num_heads,
+                      num_layers=num_layers,
+                      qkv_dim=qkv_dim,
+                      mlp_dim=mlp_dim,
+                      max_len=max_len,
+                      train=train,
+                      dropout_rate=dropout_rate,
+                      attention_dropout_rate=attention_dropout_rate,
+                      name='encoder')
 
     return encoded
 
@@ -750,36 +709,34 @@ class Transformer(nn.Module):
     del inputs_positions
 
     if share_embeddings:
-      shared_embedding = nn.Embed.shared(
-          num_embeddings=vocab_size,
-          features=emb_dim,
-          embedding_init=nn.initializers.normal(stddev=1.0))
+      shared_embedding = nn.Embed.shared(num_embeddings=vocab_size,
+                                         features=emb_dim,
+                                         embedding_init=nn.initializers.normal(stddev=1.0))
     else:
       shared_embedding = None
 
-    logits = Decoder(
-        encoded,
-        src_padding_mask,
-        targets,
-        targets_positions=targets_positions,
-        inputs_segmentation=inputs_segmentation,
-        targets_segmentation=targets_segmentation,
-        tgt_padding_mask=tgt_padding_mask,
-        output_vocab_size=output_vocab_size,
-        shared_embedding=shared_embedding,
-        logits_via_embedding=logits_via_embedding,
-        use_bfloat16=use_bfloat16,
-        emb_dim=emb_dim,
-        num_heads=num_heads,
-        num_layers=num_layers,
-        qkv_dim=qkv_dim,
-        mlp_dim=mlp_dim,
-        max_len=max_len,
-        train=train,
-        shift=shift,
-        dropout_rate=dropout_rate,
-        attention_dropout_rate=attention_dropout_rate,
-        cache=cache,
-        name='decoder')
+    logits = Decoder(encoded,
+                     src_padding_mask,
+                     targets,
+                     targets_positions=targets_positions,
+                     inputs_segmentation=inputs_segmentation,
+                     targets_segmentation=targets_segmentation,
+                     tgt_padding_mask=tgt_padding_mask,
+                     output_vocab_size=output_vocab_size,
+                     shared_embedding=shared_embedding,
+                     logits_via_embedding=logits_via_embedding,
+                     use_bfloat16=use_bfloat16,
+                     emb_dim=emb_dim,
+                     num_heads=num_heads,
+                     num_layers=num_layers,
+                     qkv_dim=qkv_dim,
+                     mlp_dim=mlp_dim,
+                     max_len=max_len,
+                     train=train,
+                     shift=shift,
+                     dropout_rate=dropout_rate,
+                     attention_dropout_rate=attention_dropout_rate,
+                     cache=cache,
+                     name='decoder')
 
     return logits

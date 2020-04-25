@@ -27,7 +27,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Momentum Contrast for Unsupervised Visual Representation Learning.
 """
 
@@ -55,99 +54,82 @@ import jax.numpy as jnp
 
 import tensorflow.compat.v2 as tf
 
-
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string(
-    'model_dir', default=None,
-    help=('Directory to store model data'))
+flags.DEFINE_string('model_dir', default=None, help=('Directory to store model data'))
 
-flags.DEFINE_integer(
-    'batch_size', default=2048,
-    help=('Batch size for training.'))
+flags.DEFINE_integer('batch_size', default=2048, help=('Batch size for training.'))
 
-flags.DEFINE_integer(
-    'eval_batch_size', default=8192,
-    help=('Batch size for evaluation.'))
+flags.DEFINE_integer('eval_batch_size', default=8192, help=('Batch size for evaluation.'))
 
-flags.DEFINE_integer(
-    'num_moco_epochs', default=200,
-    help=('Number of MoCo training epochs.'))
+flags.DEFINE_integer('num_moco_epochs', default=200, help=('Number of MoCo training epochs.'))
 
-flags.DEFINE_integer(
-    'num_clf_epochs', default=100,
-    help=('Number of linear classifier training epochs.'))
+flags.DEFINE_integer('num_clf_epochs',
+                     default=100,
+                     help=('Number of linear classifier training epochs.'))
 
-flags.DEFINE_float(
-    'moco_learning_rate', default=0.03,
-    help=('The learning rate for the MoCo optimizer.'))
+flags.DEFINE_float('moco_learning_rate',
+                   default=0.03,
+                   help=('The learning rate for the MoCo optimizer.'))
 
-flags.DEFINE_float(
-    'clf_learning_rate', default=30.0,
-    help=('The learning rate for the classifier optimizer.'))
+flags.DEFINE_float('clf_learning_rate',
+                   default=30.0,
+                   help=('The learning rate for the classifier optimizer.'))
 
-flags.DEFINE_float(
-    'sgd_momentum', default=0.9,
-    help=('SGD optimizer momentum.'))
+flags.DEFINE_float('sgd_momentum', default=0.9, help=('SGD optimizer momentum.'))
 
-flags.DEFINE_bool(
-    'sgd_nesterov', default=True,
-    help=('Use SGD Nesterov momentum.'))
+flags.DEFINE_bool('sgd_nesterov', default=True, help=('Use SGD Nesterov momentum.'))
 
-flags.DEFINE_string(
-    'lr_moco_sched_steps', default='[[120, 0.1], [160, 0.01]]',
-    help=('MoCo learning rate schedule steps as a Python list; '
-          '[[step1_epoch, step1_lr_scale], '
-          '[step2_epoch, step2_lr_scale], ...].'))
+flags.DEFINE_string('lr_moco_sched_steps',
+                    default='[[120, 0.1], [160, 0.01]]',
+                    help=('MoCo learning rate schedule steps as a Python list; '
+                          '[[step1_epoch, step1_lr_scale], '
+                          '[step2_epoch, step2_lr_scale], ...].'))
 
-flags.DEFINE_string(
-    'lr_clf_sched_steps', default='[[60, 0.2], [75, 0.04], [90, 0.008]]',
-    help=('Linear classifier learning rate schedule steps as a Python list; '
-          '[[step1_epoch, step1_lr_scale], '
-          '[step2_epoch, step2_lr_scale], ...].'))
+flags.DEFINE_string('lr_clf_sched_steps',
+                    default='[[60, 0.2], [75, 0.04], [90, 0.008]]',
+                    help=('Linear classifier learning rate schedule steps as a Python list; '
+                          '[[step1_epoch, step1_lr_scale], '
+                          '[step2_epoch, step2_lr_scale], ...].'))
 
-flags.DEFINE_float(
-    'lr_moco_sched_warmup', default=5.0,
-    help=('The length of the linear learning rate ramp-up used at the start '
-          'of MoCo training.'))
+flags.DEFINE_float('lr_moco_sched_warmup',
+                   default=5.0,
+                   help=('The length of the linear learning rate ramp-up used at the start '
+                         'of MoCo training.'))
 
-flags.DEFINE_float(
-    'lr_clf_sched_warmup', default=0.0,
-    help=('The length of the linear learning rate ramp-up used at the start '
-          'of linear classifier training.'))
+flags.DEFINE_float('lr_clf_sched_warmup',
+                   default=0.0,
+                   help=('The length of the linear learning rate ramp-up used at the start '
+                         'of linear classifier training.'))
 
-flags.DEFINE_float(
-    'moco_l2_reg', default=0.0001,
-    help=('The amount of L2-regularization to apply while training MoCo.'))
+flags.DEFINE_float('moco_l2_reg',
+                   default=0.0001,
+                   help=('The amount of L2-regularization to apply while training MoCo.'))
 
-flags.DEFINE_float(
-    'clf_l2_reg', default=0.0,
-    help=('The amount of L2-regularization to apply while training linear '
-          'classifier.'))
+flags.DEFINE_float('clf_l2_reg',
+                   default=0.0,
+                   help=('The amount of L2-regularization to apply while training linear '
+                         'classifier.'))
 
-flags.DEFINE_string(
-    'arch', default='resnet50',
-    help=('Network architecture (resnet50, resnet101 or resnet152).'))
+flags.DEFINE_string('arch',
+                    default='resnet50',
+                    help=('Network architecture (resnet50, resnet101 or resnet152).'))
 
-flags.DEFINE_float(
-    'moco_momentum', default=0.999,
-    help=('MoCo momentum'))
+flags.DEFINE_float('moco_momentum', default=0.999, help=('MoCo momentum'))
 
-flags.DEFINE_integer(
-    'emb_size', default=128,
-    help=('Size of embedding generated by MoCo network during training.'))
+flags.DEFINE_integer('emb_size',
+                     default=128,
+                     help=('Size of embedding generated by MoCo network during training.'))
 
-flags.DEFINE_float(
-    'moco_temperature', default=0.07,
-    help=('Softmax temperature.'))
+flags.DEFINE_float('moco_temperature', default=0.07, help=('Softmax temperature.'))
 
-flags.DEFINE_integer(
-    'dictionary_size', default=65536,
-    help=('Size of dictionary of keys used during MoCo training.'))
+flags.DEFINE_integer('dictionary_size',
+                     default=65536,
+                     help=('Size of dictionary of keys used during MoCo training.'))
 
-flags.DEFINE_integer(
-    'rng', default=0,
-    help=('Random seed for network initialization and training.'))
+flags.DEFINE_integer('rng',
+                     default=0,
+                     help=('Random seed for network initialization and training.'))
 
 
 @functools.partial(jax.jit, static_argnums=(1, 2, 3))
@@ -155,8 +137,7 @@ def create_model(key, batch_size, image_size, module):
   input_shape = (batch_size, image_size, image_size, 3)
   with flax.nn.stateful() as init_state:
     with flax.nn.stochastic(jax.random.PRNGKey(0)):
-      (_, _), initial_params = module.init_by_shape(
-          key, [(input_shape, jnp.float32)])
+      (_, _), initial_params = module.init_by_shape(key, [(input_shape, jnp.float32)])
       model = flax.nn.Model(module, initial_params)
   return model, init_state
 
@@ -166,8 +147,7 @@ def create_linear_classifier(key, batch_size, feature_size, num_classes):
   input_shape = (batch_size, feature_size)
   module = flax.nn.Dense.partial(features=num_classes)
   with flax.nn.stateful():
-    _, initial_params = module.init_by_shape(
-        key, [(input_shape, jnp.float32)])
+    _, initial_params = module.init_by_shape(key, [(input_shape, jnp.float32)])
     model = flax.nn.Model(module, initial_params)
   return model
 
@@ -265,10 +245,8 @@ def moco_key_step(model_key, state_key, batch):
   return emb_key, new_state_key
 
 
-def moco_train_step(optimizer_query, state_query, model_key,
-                    batch, moco_dictionary, n_devices,
-                    moco_temperature, learning_rate_fn, l2_reg,
-                    moco_momentum):
+def moco_train_step(optimizer_query, state_query, model_key, batch, moco_dictionary, n_devices,
+                    moco_temperature, learning_rate_fn, l2_reg, moco_momentum):
   """MoCo training step part 2.
 
   Given the keys generated in part 1, part 2
@@ -313,16 +291,13 @@ def moco_train_step(optimizer_query, state_query, model_key,
     # emb_query.shape = (n_samples, emb_size)
 
     # Compute per-sample MoCo loss
-    moco_loss_per_sample = moco_loss(emb_query, emb_key, moco_dictionary,
-                                     moco_temperature)
+    moco_loss_per_sample = moco_loss(emb_query, emb_key, moco_dictionary, moco_temperature)
     loss = moco_loss_per_sample.mean()
 
     # Apply L2 regularization
     if l2_reg > 0:
       weight_penalty_params = jax.tree_leaves(model_query.params)
-      weight_l2 = sum([jnp.sum(x ** 2)
-                       for x in weight_penalty_params
-                       if x.ndim > 1])
+      weight_l2 = sum([jnp.sum(x**2) for x in weight_penalty_params if x.ndim > 1])
       weight_penalty = l2_reg * 0.5 * weight_l2
       loss = loss + weight_penalty
 
@@ -336,9 +311,8 @@ def moco_train_step(optimizer_query, state_query, model_key,
 
   # Update key network - exponential moving average of query network
   model_key_params = jax.tree_multimap(
-      lambda p_k, p_q: p_k * moco_momentum + p_q * (1.0 - moco_momentum),
-      model_key.params, new_optimizer_query.target.params
-  )
+      lambda p_k, p_q: p_k * moco_momentum + p_q * (1.0 - moco_momentum), model_key.params,
+      new_optimizer_query.target.params)
   model_key = model_key.replace(params=model_key_params)
 
   # Compute metrics
@@ -356,8 +330,8 @@ def moco_train_step(optimizer_query, state_query, model_key,
   return new_optimizer_query, new_state_query, metrics, model_key, emb_key_all
 
 
-def classifier_train_step(clf_feat_optimizer, model_moco, state_moco,
-                          batch, learning_rate_fn, l2_reg):
+def classifier_train_step(clf_feat_optimizer, model_moco, state_moco, batch, learning_rate_fn,
+                          l2_reg):
   """Linear classifier training step."""
   # Average batch stats across devices/hosts
   state_moco = common_utils.pmean(state_moco)
@@ -377,18 +351,16 @@ def classifier_train_step(clf_feat_optimizer, model_moco, state_moco,
 
     if l2_reg > 0:
       weight_penalty_params = jax.tree_leaves(model_clf.params)
-      weight_l2 = sum([jnp.sum(x ** 2)
-                       for x in weight_penalty_params
-                       if x.ndim > 1])
+      weight_l2 = sum([jnp.sum(x**2) for x in weight_penalty_params if x.ndim > 1])
       weight_penalty = l2_reg * 0.5 * weight_l2
       loss = loss + weight_penalty
-    return loss, (logits,)
+    return loss, (logits, )
 
   # Feature classifier
   feat_step = clf_feat_optimizer.state.step
   feat_lr = learning_rate_fn(feat_step)
-  new_clf_feat_optimizer, _, (feat_logits,) = clf_feat_optimizer.optimize(
-      features_loss_fn, learning_rate=feat_lr)
+  new_clf_feat_optimizer, _, (feat_logits, ) = clf_feat_optimizer.optimize(features_loss_fn,
+                                                                           learning_rate=feat_lr)
 
   feat_metrics = compute_metrics(feat_logits, batch['label'])
   feat_metrics['learning_rate'] = feat_lr
@@ -423,7 +395,7 @@ def train(module,
           make_clf_lr_fun=None,
           moco_l2_reg=0.0001,
           clf_l2_reg=0.0,
-          feature_size=64*8*4,
+          feature_size=64 * 8 * 4,
           moco_momentum=0.999,
           emb_size=128,
           moco_temperature=0.07,
@@ -431,14 +403,16 @@ def train(module,
           run_seed=0):
   """Train MoCo model."""
   if make_moco_lr_fun is None:
+
     def make_moco_lr_fun(base_lr, steps_per_epoch):  # pylint: disable=function-redefined
-      return lr_schedule.create_stepped_learning_rate_schedule(
-          base_lr, steps_per_epoch, [[120, 0.1], [160, 0.01]])
+      return lr_schedule.create_stepped_learning_rate_schedule(base_lr, steps_per_epoch,
+                                                               [[120, 0.1], [160, 0.01]])
 
   if make_clf_lr_fun is None:
+
     def make_clf_lr_fun(base_lr, steps_per_epoch):  # pylint: disable=function-redefined
-      return lr_schedule.create_stepped_learning_rate_schedule(
-          base_lr, steps_per_epoch, [[60, 0.2], [75, 0.04], [90, 0.008]])
+      return lr_schedule.create_stepped_learning_rate_schedule(base_lr, steps_per_epoch,
+                                                               [[60, 0.2], [75, 0.04], [90, 0.008]])
 
   if jax.host_id() == 0:
     summary_writer = tensorboard.SummaryWriter(model_dir)
@@ -456,15 +430,12 @@ def train(module,
                  'not yet supported in multi-host environments')
 
   train_rng = jax.random.PRNGKey(run_seed)
-  (init_moco_rng, init_clf_rng, init_dictionary_rng,
-   train_rng) = jax.random.split(train_rng, num=4)
+  (init_moco_rng, init_clf_rng, init_dictionary_rng, train_rng) = jax.random.split(train_rng, num=4)
 
   if batch_size % jax.device_count() > 0:
-    raise ValueError('Train batch size must be divisible by the number '
-                     'of devices')
+    raise ValueError('Train batch size must be divisible by the number ' 'of devices')
   if eval_batch_size % jax.device_count() > 0:
-    raise ValueError('Eval batch size must be divisible by the number '
-                     'of devices')
+    raise ValueError('Eval batch size must be divisible by the number ' 'of devices')
   local_batch_size = batch_size // jax.host_count()
   local_eval_batch_size = eval_batch_size // jax.host_count()
   n_devices = jax.device_count()
@@ -473,10 +444,9 @@ def train(module,
   device_batch_size = batch_size // n_devices
 
   image_size = 224
-  data_source = imagenet_data_source.load_imagenet(
-      train_batch_size=local_batch_size,
-      eval_batch_size=local_eval_batch_size,
-      greyscale_prob=0.1)
+  data_source = imagenet_data_source.load_imagenet(train_batch_size=local_batch_size,
+                                                   eval_batch_size=local_eval_batch_size,
+                                                   greyscale_prob=0.1)
 
   n_train = data_source.n_train
   train_moco_ds = data_source.train_moco_ds
@@ -496,17 +466,16 @@ def train(module,
   #
   # Create query model
   #
-  model_query, state_query = create_model(
-      init_moco_rng, device_batch_size, image_size, module)
+  model_query, state_query = create_model(init_moco_rng, device_batch_size, image_size, module)
   state_query = jax_utils.replicate(state_query)
 
   # Create linear classifier
-  feat_model_clf = create_linear_classifier(
-      init_clf_rng, device_batch_size, feature_size, data_source.n_classes)
+  feat_model_clf = create_linear_classifier(init_clf_rng, device_batch_size, feature_size,
+                                            data_source.n_classes)
 
   # Randomly initialise dictionary
-  moco_dictionary = jax.random.normal(
-      init_dictionary_rng, (dictionary_size, emb_size), dtype=jnp.float32)
+  moco_dictionary = jax.random.normal(init_dictionary_rng, (dictionary_size, emb_size),
+                                      dtype=jnp.float32)
   moco_dictionary = normalize_embeddings(moco_dictionary)
   logging.info('Built model')
 
@@ -515,14 +484,15 @@ def train(module,
   #
 
   optimizer_def = optim.Momentum(learning_rate=moco_learning_rate,
-                                 beta=sgd_momentum, nesterov=sgd_nesterov)
+                                 beta=sgd_momentum,
+                                 nesterov=sgd_nesterov)
   optimizer_query = optimizer_def.create(model_query)
   optimizer_query = optimizer_query.replicate()
   del model_query  # don't keep a copy of the initial model
 
-  feat_clf_optimizer_def = optim.Momentum(
-      learning_rate=clf_learning_rate, beta=sgd_momentum,
-      nesterov=sgd_nesterov)
+  feat_clf_optimizer_def = optim.Momentum(learning_rate=clf_learning_rate,
+                                          beta=sgd_momentum,
+                                          nesterov=sgd_nesterov)
   feat_clf_optimizer = feat_clf_optimizer_def.create(feat_model_clf)
   feat_clf_optimizer = feat_clf_optimizer.replicate()
   logging.info('Built optimizer')
@@ -533,10 +503,8 @@ def train(module,
 
   base_moco_learning_rate = moco_learning_rate * batch_size / 256.
   base_clf_learning_rate = clf_learning_rate * batch_size / 256.
-  moco_learning_rate_fn = make_moco_lr_fun(
-      base_moco_learning_rate, steps_per_epoch)
-  clf_learning_rate_fn = make_clf_lr_fun(
-      base_clf_learning_rate, steps_per_epoch)
+  moco_learning_rate_fn = make_moco_lr_fun(base_moco_learning_rate, steps_per_epoch)
+  clf_learning_rate_fn = make_clf_lr_fun(base_clf_learning_rate, steps_per_epoch)
 
   # The key model is a replica of the query model. Since Flax models are
   # immutable, we can start with the query model
@@ -554,24 +522,19 @@ def train(module,
   #
   # Training and eval functions
   #
-  p_moco_key_step = jax.pmap(
-      functools.partial(moco_key_step),
-      axis_name='batch')
-  p_moco_train_step = jax.pmap(
-      functools.partial(moco_train_step, n_devices=n_devices,
-                        moco_temperature=moco_temperature,
-                        learning_rate_fn=moco_learning_rate_fn,
-                        l2_reg=moco_l2_reg,
-                        moco_momentum=moco_momentum),
-      axis_name='batch')
-  p_classifier_train_step = jax.pmap(
-      functools.partial(classifier_train_step,
-                        learning_rate_fn=clf_learning_rate_fn,
-                        l2_reg=clf_l2_reg),
-      axis_name='batch')
-  p_eval_step = jax.pmap(
-      functools.partial(eval_step),
-      axis_name='batch')
+  p_moco_key_step = jax.pmap(functools.partial(moco_key_step), axis_name='batch')
+  p_moco_train_step = jax.pmap(functools.partial(moco_train_step,
+                                                 n_devices=n_devices,
+                                                 moco_temperature=moco_temperature,
+                                                 learning_rate_fn=moco_learning_rate_fn,
+                                                 l2_reg=moco_l2_reg,
+                                                 moco_momentum=moco_momentum),
+                               axis_name='batch')
+  p_classifier_train_step = jax.pmap(functools.partial(classifier_train_step,
+                                                       learning_rate_fn=clf_learning_rate_fn,
+                                                       l2_reg=clf_l2_reg),
+                                     axis_name='batch')
+  p_eval_step = jax.pmap(functools.partial(eval_step), axis_name='batch')
 
   # Create MoCo dataset batch iterator
   train_moco_it = iter(train_moco_ds)
@@ -594,16 +557,14 @@ def train(module,
     # Compute key embeddings
     # We have to shuffle the batch to prevent the network from cheating using
     # batch stats
-    shuffle_forward = jax.random.shuffle(
-        shuffle_rng, jnp.arange(local_batch_size))
-    shuffle_backward = jnp.zeros((local_batch_size,), dtype=int)
-    shuffle_backward = jax.ops.index_update(
-        shuffle_backward, shuffle_forward, jnp.arange(local_batch_size))
+    shuffle_forward = jax.random.shuffle(shuffle_rng, jnp.arange(local_batch_size))
+    shuffle_backward = jnp.zeros((local_batch_size, ), dtype=int)
+    shuffle_backward = jax.ops.index_update(shuffle_backward, shuffle_forward,
+                                            jnp.arange(local_batch_size))
 
     key_batch = dict(x_key=batch['key_image'][shuffle_forward, ...])
     key_batch_sharded = common_utils.shard(key_batch)
-    emb_key, state_key = p_moco_key_step(
-        model_key, state_key, key_batch_sharded)
+    emb_key, state_key = p_moco_key_step(model_key, state_key, key_batch_sharded)
     emb_key = emb_key.reshape((-1, emb_size))
     emb_key = emb_key[shuffle_backward, ...]
 
@@ -615,8 +576,7 @@ def train(module,
     sharded_moco_batch = common_utils.shard(moco_batch)
 
     # Repeat the MoCo dictionary across shards
-    sharded_dict = jnp.repeat(moco_dictionary[None, ...], n_local_devices,
-                              axis=0)
+    sharded_dict = jnp.repeat(moco_dictionary[None, ...], n_local_devices, axis=0)
 
     # The main train step function is applied slightly differently in
     # multi-host environments
@@ -625,14 +585,12 @@ def train(module,
                           sharded_moco_batch, sharded_dict)
     code_batch = code_batch[0].reshape((-1, emb_size))
 
-    moco_dictionary = jnp.append(
-        code_batch, moco_dictionary, axis=0)[:dictionary_size]
+    moco_dictionary = jnp.append(code_batch, moco_dictionary, axis=0)[:dictionary_size]
 
     epoch_metrics_moco.append(metrics_moco)
     if (moco_step + 1) % steps_per_epoch == 0:
       epoch_metrics_moco = common_utils.get_metrics(epoch_metrics_moco)
-      train_epoch_metrics = jax.tree_map(lambda x: x.mean(),
-                                         epoch_metrics_moco)
+      train_epoch_metrics = jax.tree_map(lambda x: x.mean(), epoch_metrics_moco)
       if summary_writer is not None:
         for key, vals in epoch_metrics_moco.items():
           tag = 'train_%s' % key
@@ -643,9 +601,8 @@ def train(module,
 
       t2 = time.time()
 
-      logging.info(
-          'MoCo EPOCH %d: (took %.3fs): MoCo loss=%.6f',
-          moco_epoch, t2 - t1, train_epoch_metrics['moco_loss'])
+      logging.info('MoCo EPOCH %d: (took %.3fs): MoCo loss=%.6f', moco_epoch, t2 - t1,
+                   train_epoch_metrics['moco_loss'])
 
       t1 = t2
 
@@ -678,14 +635,13 @@ def train(module,
     batch = jax.tree_map(lambda x: x._numpy(), batch)  # pylint: disable=protected-access
     batch = common_utils.shard(batch)
 
-    feat_clf_optimizer, feat_metrics = p_classifier_train_step(
-        feat_clf_optimizer, model_key, state_key, batch)
+    feat_clf_optimizer, feat_metrics = p_classifier_train_step(feat_clf_optimizer, model_key,
+                                                               state_key, batch)
 
     epoch_feat_metrics.append(feat_metrics)
     if (clf_step + 1) % steps_per_epoch == 0:
       epoch_feat_metrics = common_utils.get_metrics(epoch_feat_metrics)
-      train_epoch_feat_metrics = jax.tree_map(lambda x: x.mean(),
-                                              epoch_feat_metrics)
+      train_epoch_feat_metrics = jax.tree_map(lambda x: x.mean(), epoch_feat_metrics)
       if summary_writer is not None:
         for key, vals in epoch_feat_metrics.items():
           tag = 'train_feat_%s' % key
@@ -700,19 +656,19 @@ def train(module,
         eval_batch = jax.tree_map(lambda x: x._numpy(), eval_batch)  # pylint: disable=protected-access
         # Shard across local devices
         eval_batch = common_utils.shard(eval_batch)
-        feat_metrics = p_eval_step(
-            model_key, state_key, feat_clf_optimizer.target, eval_batch)
+        feat_metrics = p_eval_step(model_key, state_key, feat_clf_optimizer.target, eval_batch)
         eval_feat_metrics.append(feat_metrics)
       eval_feat_metrics = common_utils.get_metrics(eval_feat_metrics)
-      eval_epoch_feat_metrics = jax.tree_map(lambda x: x.mean(),
-                                             eval_feat_metrics)
+      eval_epoch_feat_metrics = jax.tree_map(lambda x: x.mean(), eval_feat_metrics)
 
       t2 = time.time()
 
       logging.info(
           'Linear classifier EPOCH %d: (took %.3fs): TRAIN FEAT loss=%.6f, '
           'err=%.3f; EVAL FEAT loss=%.6f, err=%.3f',
-          clf_epoch, t2 - t1, train_epoch_feat_metrics['loss'],
+          clf_epoch,
+          t2 - t1,
+          train_epoch_feat_metrics['loss'],
           train_epoch_feat_metrics['error_rate'] * 100.0,
           eval_epoch_feat_metrics['loss'],
           eval_epoch_feat_metrics['error_rate'] * 100.0,
@@ -721,10 +677,9 @@ def train(module,
       t1 = t2
 
       if summary_writer is not None:
-        summary_writer.scalar('eval_feat_loss',
-                              eval_epoch_feat_metrics['loss'], clf_epoch)
-        summary_writer.scalar('eval_feat_error_rate',
-                              eval_epoch_feat_metrics['error_rate'], clf_epoch)
+        summary_writer.scalar('eval_feat_loss', eval_epoch_feat_metrics['loss'], clf_epoch)
+        summary_writer.scalar('eval_feat_error_rate', eval_epoch_feat_metrics['error_rate'],
+                              clf_epoch)
         summary_writer.flush()
 
       clf_epoch += 1
@@ -764,13 +719,11 @@ def main(argv):
 
   def make_moco_lr_fun(base_lr, steps_per_epoch):
     return lr_schedule.create_stepped_learning_rate_schedule(
-        base_lr, steps_per_epoch, lr_moco_sched_steps,
-        warmup_length=FLAGS.lr_moco_sched_warmup)
+        base_lr, steps_per_epoch, lr_moco_sched_steps, warmup_length=FLAGS.lr_moco_sched_warmup)
 
   def make_clf_lr_fun(base_lr, steps_per_epoch):
     return lr_schedule.create_stepped_learning_rate_schedule(
-        base_lr, steps_per_epoch, lr_clf_sched_steps,
-        warmup_length=FLAGS.lr_clf_sched_warmup)
+        base_lr, steps_per_epoch, lr_clf_sched_steps, warmup_length=FLAGS.lr_clf_sched_warmup)
 
   train(module,
         model_dir=FLAGS.model_dir,

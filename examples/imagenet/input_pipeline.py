@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """ImageNet input pipeline.
 """
 
@@ -20,10 +19,8 @@ import jax
 import tensorflow.compat.v2 as tf
 import tensorflow_datasets as tfds
 
-
 TRAIN_IMAGES = 1281167
 EVAL_IMAGES = 50000
-
 
 IMAGE_SIZE = 224
 CROP_PADDING = 32
@@ -81,8 +78,7 @@ def distorted_bounding_box_crop(image_bytes,
 
 
 def _resize(image, image_size):
-  return tf.image.resize([image], [image_size, image_size],
-                         method=tf.image.ResizeMethod.BICUBIC)[0]
+  return tf.image.resize([image], [image_size, image_size], method=tf.image.ResizeMethod.BICUBIC)[0]
 
 
 def _at_least_x_are_equal(a, b, x):
@@ -95,20 +91,17 @@ def _at_least_x_are_equal(a, b, x):
 def _decode_and_random_crop(image_bytes, image_size):
   """Make a random crop of image_size."""
   bbox = tf.constant([0.0, 0.0, 1.0, 1.0], dtype=tf.float32, shape=[1, 1, 4])
-  image = distorted_bounding_box_crop(
-      image_bytes,
-      bbox,
-      min_object_covered=0.1,
-      aspect_ratio_range=(3. / 4, 4. / 3.),
-      area_range=(0.08, 1.0),
-      max_attempts=10)
+  image = distorted_bounding_box_crop(image_bytes,
+                                      bbox,
+                                      min_object_covered=0.1,
+                                      aspect_ratio_range=(3. / 4, 4. / 3.),
+                                      area_range=(0.08, 1.0),
+                                      max_attempts=10)
   original_shape = tf.image.extract_jpeg_shape(image_bytes)
   bad = _at_least_x_are_equal(original_shape, tf.shape(image), 3)
 
-  image = tf.cond(
-      bad,
-      lambda: _decode_and_center_crop(image_bytes, image_size),
-      lambda: _resize(image, image_size))
+  image = tf.cond(bad, lambda: _decode_and_center_crop(image_bytes, image_size),
+                  lambda: _resize(image, image_size))
 
   return image
 
@@ -120,14 +113,14 @@ def _decode_and_center_crop(image_bytes, image_size):
   image_width = shape[1]
 
   padded_center_crop_size = tf.cast(
-      ((image_size / (image_size + CROP_PADDING)) *
-       tf.cast(tf.minimum(image_height, image_width), tf.float32)),
+      ((image_size /
+        (image_size + CROP_PADDING)) * tf.cast(tf.minimum(image_height, image_width), tf.float32)),
       tf.int32)
 
   offset_height = ((image_height - padded_center_crop_size) + 1) // 2
   offset_width = ((image_width - padded_center_crop_size) + 1) // 2
-  crop_window = tf.stack([offset_height, offset_width,
-                          padded_center_crop_size, padded_center_crop_size])
+  crop_window = tf.stack(
+      [offset_height, offset_width, padded_center_crop_size, padded_center_crop_size])
   image = tf.image.decode_and_crop_jpeg(image_bytes, crop_window, channels=3)
   image = _resize(image, image_size)
 
@@ -205,9 +198,11 @@ def load_split(batch_size, train, dtype=tf.float32, image_size=IMAGE_SIZE, cache
       image = preprocess_for_eval(example['image'], dtype, image_size)
     return {'image': image, 'label': example['label']}
 
-  ds = tfds.load('imagenet2012:5.*.*', split=split, decoders={
-      'image': tfds.decode.SkipDecoding(),
-  })
+  ds = tfds.load('imagenet2012:5.*.*',
+                 split=split,
+                 decoders={
+                     'image': tfds.decode.SkipDecoding(),
+                 })
   ds.options().experimental_threading.private_threadpool_size = 48
   ds.options().experimental_threading.max_intra_op_parallelism = 1
 

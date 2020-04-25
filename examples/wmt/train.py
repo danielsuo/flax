@@ -26,7 +26,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Machine Translation example.
 
 This script trains a Transformer on a WMT dataset.
@@ -58,102 +57,77 @@ import tensorflow.compat.v2 as tf
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string(
-    'model_dir', default=None,
-    help='Directory to store model data.')
+flags.DEFINE_string('model_dir', default=None, help='Directory to store model data.')
 
-flags.DEFINE_string(
-    'data_dir', default=None,
-    help='Tensorflow datasets directory.')
+flags.DEFINE_string('data_dir', default=None, help='Tensorflow datasets directory.')
 
-flags.DEFINE_string(
-    'vocab_path', default=None,
-    help='Directory to store subword vocab file.')
+flags.DEFINE_string('vocab_path', default=None, help='Directory to store subword vocab file.')
 
-flags.DEFINE_string(
-    'dataset_name', default='wmt17_translate/de-en',
-    help='Name of TFDS translation dataset to use.')
+flags.DEFINE_string('dataset_name',
+                    default='wmt17_translate/de-en',
+                    help='Name of TFDS translation dataset to use.')
 
-flags.DEFINE_integer(
-    'batch_size', default=256,
-    help='Per host batch size for training.')
+flags.DEFINE_integer('batch_size', default=256, help='Per host batch size for training.')
 
-flags.DEFINE_integer(
-    'eval_frequency', default=1000,
-    help='Frequency of eval during training, e.g. every 1000 steps.')
+flags.DEFINE_integer('eval_frequency',
+                     default=1000,
+                     help='Frequency of eval during training, e.g. every 1000 steps.')
 
-flags.DEFINE_integer(
-    'num_train_steps', default=500000,
-    help='Number of train steps.')
+flags.DEFINE_integer('num_train_steps', default=500000, help='Number of train steps.')
 
-flags.DEFINE_integer(
-    'num_eval_steps', default=20,
-    help='Number of evaluation steps.')
+flags.DEFINE_integer('num_eval_steps', default=20, help='Number of evaluation steps.')
 
-flags.DEFINE_float(
-    'learning_rate', default=0.0625,
-    help='Base learning rate.')
+flags.DEFINE_float('learning_rate', default=0.0625, help='Base learning rate.')
 
-flags.DEFINE_float(
-    'warmup_steps', default=8000,
-    help='Linear learning rate warmup.')
+flags.DEFINE_float('warmup_steps', default=8000, help='Linear learning rate warmup.')
 
-flags.DEFINE_float(
-    'label_smoothing', default=0.1,
-    help='Cross entropy loss label smoothing.')
+flags.DEFINE_float('label_smoothing', default=0.1, help='Cross entropy loss label smoothing.')
 
-flags.DEFINE_float(
-    'weight_decay', default=0.0,
-    help='Decay factor for AdamW style weight decay.')
+flags.DEFINE_float('weight_decay', default=0.0, help='Decay factor for AdamW style weight decay.')
 
-flags.DEFINE_integer(
-    'max_target_length', default=256,
-    help='Maximum length cutoff for training examples.')
+flags.DEFINE_integer('max_target_length',
+                     default=256,
+                     help='Maximum length cutoff for training examples.')
 
-flags.DEFINE_integer(
-    'max_eval_target_length', default=256,
-    help='Maximum length cutoff for eval examples.')
+flags.DEFINE_integer('max_eval_target_length',
+                     default=256,
+                     help='Maximum length cutoff for eval examples.')
 
-flags.DEFINE_integer(
-    'max_predict_length', default=256,
-    help='Maximum length cutoff for predicted tokens.')
+flags.DEFINE_integer('max_predict_length',
+                     default=256,
+                     help='Maximum length cutoff for predicted tokens.')
 
-flags.DEFINE_bool(
-    'share_embeddings', default=True,
-    help='Inputs and targets share embedding.')
+flags.DEFINE_bool('share_embeddings', default=True, help='Inputs and targets share embedding.')
 
-flags.DEFINE_bool(
-    'logits_via_embedding', default=True,
-    help='Final logit transform uses embedding matrix transpose.')
+flags.DEFINE_bool('logits_via_embedding',
+                  default=True,
+                  help='Final logit transform uses embedding matrix transpose.')
 
-flags.DEFINE_integer(
-    'random_seed', default=0,
-    help='Integer for PRNG random seed.')
+flags.DEFINE_integer('random_seed', default=0, help='Integer for PRNG random seed.')
 
-flags.DEFINE_bool(
-    'save_checkpoints', default=True,
-    help='Whether to save model checkpoints for debugging.')
+flags.DEFINE_bool('save_checkpoints',
+                  default=True,
+                  help='Whether to save model checkpoints for debugging.')
 
-flags.DEFINE_bool(
-    'restore_checkpoints', default=True,
-    help='Whether to restore from existing model checkpoints.')
+flags.DEFINE_bool('restore_checkpoints',
+                  default=True,
+                  help='Whether to restore from existing model checkpoints.')
 
-flags.DEFINE_integer(
-    'checkpoint_freq', default=10000,
-    help='Save a checkpoint every these number of steps.')
+flags.DEFINE_integer('checkpoint_freq',
+                     default=10000,
+                     help='Save a checkpoint every these number of steps.')
 
-flags.DEFINE_bool(
-    'use_bfloat16', default=True,
-    help=('Use bfloat16 mixed precision training instead of float32.'))
+flags.DEFINE_bool('use_bfloat16',
+                  default=True,
+                  help=('Use bfloat16 mixed precision training instead of float32.'))
 
 
-def create_learning_rate_scheduler(
-    factors='constant * linear_warmup * rsqrt_decay',
-    base_learning_rate=0.5,
-    warmup_steps=1000,
-    decay_factor=0.5,
-    steps_per_decay=20000,
-    steps_per_cycle=100000):
+def create_learning_rate_scheduler(factors='constant * linear_warmup * rsqrt_decay',
+                                   base_learning_rate=0.5,
+                                   warmup_steps=1000,
+                                   decay_factor=0.5,
+                                   steps_per_decay=20000,
+                                   steps_per_cycle=100000):
   """Creates learning rate schedule.
 
   Interprets factors in the factors string which can consist of:
@@ -194,10 +168,8 @@ def create_learning_rate_scheduler(
       elif name == 'decay_every':
         ret *= (decay_factor**(step // steps_per_decay))
       elif name == 'cosine_decay':
-        progress = jnp.maximum(0.0,
-                               (step - warmup_steps) / float(steps_per_cycle))
-        ret *= jnp.maximum(0.0,
-                           0.5 * (1.0 + jnp.cos(jnp.pi * (progress % 1.0))))
+        progress = jnp.maximum(0.0, (step - warmup_steps) / float(steps_per_cycle))
+        ret *= jnp.maximum(0.0, 0.5 * (1.0 + jnp.cos(jnp.pi * (progress % 1.0))))
       else:
         raise ValueError('Unknown factor %s.' % name)
     return jnp.asarray(ret, dtype=jnp.float32)
@@ -210,28 +182,24 @@ def create_model(key, input_shape, target_shape, model_kwargs):
   """Instantiate transformer model and associated autoregressive cache def."""
   model_def = models.Transformer.partial(**model_kwargs)
   with nn.attention.Cache().mutate() as cache_def:
-    _, initial_params = model_def.init_by_shape(
-        key, [(input_shape, jnp.float32), (target_shape, jnp.float32)],
-        cache=cache_def)
+    _, initial_params = model_def.init_by_shape(key, [(input_shape, jnp.float32),
+                                                      (target_shape, jnp.float32)],
+                                                cache=cache_def)
     model = nn.Model(model_def, initial_params)
   return model, cache_def
 
 
 def create_optimizer(model, learning_rate, weight_decay):
-  optimizer_def = optim.Adam(
-      learning_rate,
-      beta1=0.9,
-      beta2=0.98,
-      eps=1e-9,
-      weight_decay=weight_decay)
+  optimizer_def = optim.Adam(learning_rate,
+                             beta1=0.9,
+                             beta2=0.98,
+                             eps=1e-9,
+                             weight_decay=weight_decay)
   optimizer = optimizer_def.create(model)
   return optimizer
 
 
-def compute_weighted_cross_entropy(logits,
-                                   targets,
-                                   weights=None,
-                                   label_smoothing=0.0):
+def compute_weighted_cross_entropy(logits, targets, weights=None, label_smoothing=0.0):
   """Compute weighted cross entropy and entropy for log probs and targets.
 
   Args:
@@ -250,11 +218,12 @@ def compute_weighted_cross_entropy(logits,
   vocab_size = logits.shape[-1]
   confidence = 1.0 - label_smoothing
   low_confidence = (1.0 - confidence) / (vocab_size - 1)
-  normalizing_constant = -(
-      confidence * jnp.log(confidence) + (vocab_size - 1) *
-      low_confidence * jnp.log(low_confidence + 1e-20))
-  soft_targets = common_utils.onehot(
-      targets, vocab_size, on_value=confidence, off_value=low_confidence)
+  normalizing_constant = -(confidence * jnp.log(confidence) +
+                           (vocab_size - 1) * low_confidence * jnp.log(low_confidence + 1e-20))
+  soft_targets = common_utils.onehot(targets,
+                                     vocab_size,
+                                     on_value=confidence,
+                                     off_value=low_confidence)
 
   loss = -jnp.sum(soft_targets * nn.log_softmax(logits), axis=-1)
   loss = loss - normalizing_constant
@@ -292,8 +261,7 @@ def compute_weighted_accuracy(logits, targets, weights=None):
 
 def compute_metrics(logits, labels, weights, label_smoothing=0.0):
   """Compute summary metrics."""
-  loss, weight_sum = compute_weighted_cross_entropy(logits, labels, weights,
-                                                    label_smoothing)
+  loss, weight_sum = compute_weighted_cross_entropy(logits, labels, weights, label_smoothing)
   acc, _ = compute_weighted_accuracy(logits, labels, weights)
   metrics = {
       'loss': loss,
@@ -315,13 +283,12 @@ def train_step(optimizer,
   # where multiple sequences are packed into the same example with this metadata.
   # if such features are not present they are ignored and the example is treated
   # like a normal, unpacked sequence example.
-  train_keys = ['inputs', 'targets',
-                'inputs_position', 'targets_position',
-                'inputs_segmentation', 'targets_segmentation']
-  (inputs, targets,
-   inputs_positions, targets_positions,
-   inputs_segmentation, targets_segmentation) = [
-       batch.get(k, None) for k in train_keys]
+  train_keys = [
+      'inputs', 'targets', 'inputs_position', 'targets_position', 'inputs_segmentation',
+      'targets_segmentation'
+  ]
+  (inputs, targets, inputs_positions, targets_positions, inputs_segmentation,
+   targets_segmentation) = [batch.get(k, None) for k in train_keys]
 
   weights = jnp.where(targets > 0, 1, 0).astype(jnp.float32)
 
@@ -331,19 +298,17 @@ def train_step(optimizer,
   def loss_fn(model):
     """loss function used for training."""
     with nn.stochastic(dropout_rng):
-      logits = model(
-          inputs,
-          targets,
-          use_bfloat16=use_bfloat16,
-          inputs_positions=inputs_positions,
-          targets_positions=targets_positions,
-          inputs_segmentation=inputs_segmentation,
-          targets_segmentation=targets_segmentation,
-          train=True,
-          cache=None)
+      logits = model(inputs,
+                     targets,
+                     use_bfloat16=use_bfloat16,
+                     inputs_positions=inputs_positions,
+                     targets_positions=targets_positions,
+                     inputs_segmentation=inputs_segmentation,
+                     targets_segmentation=targets_segmentation,
+                     train=True,
+                     cache=None)
 
-    loss, weight_sum = compute_weighted_cross_entropy(logits, targets, weights,
-                                                      label_smoothing)
+    loss, weight_sum = compute_weighted_cross_entropy(logits, targets, weights, label_smoothing)
     mean_loss = loss / weight_sum
     return mean_loss, logits
 
@@ -363,29 +328,25 @@ def eval_step(model, batch, label_smoothing=0.0, use_bfloat16=False):
   """Calculate evaluation metrics on a batch."""
   inputs, targets = batch['inputs'], batch['targets']
   weights = jnp.where(targets > 0, 1.0, 0.0)
-  logits = model(inputs, targets, use_bfloat16=use_bfloat16, train=False,
-                 cache=None)
+  logits = model(inputs, targets, use_bfloat16=use_bfloat16, train=False, cache=None)
   return compute_metrics(logits, targets, weights, label_smoothing)
 
 
-def predict_step(inputs, model, cache, eos_token, max_decode_len,
-                 use_bfloat16=False):
+def predict_step(inputs, model, cache, eos_token, max_decode_len, use_bfloat16=False):
   """Predict translation with fast decoding beam search on a batch."""
   batch_size = inputs.shape[0]
   beam_size = 4
 
   # Prepare transformer fast-decoder call for beam search: for beam search, we
-  # need to set up our decoder model to handle a batch size equal to 
+  # need to set up our decoder model to handle a batch size equal to
   # batch_size * beam_size, where each batch item's data is expanded in-place
   # rather than tiled.
   # i.e. if we denote each batch element subtensor as el[n]:
   # [el0, el1, el2] --> beamsize=2 --> [el0,el0,el1,el1,el2,el2]
-  src_padding_mask = decode.flat_batch_beam_expand(
-      (inputs > 0)[..., None], beam_size)
-  tgt_padding_mask = decode.flat_batch_beam_expand(
-      jnp.ones((batch_size, 1, 1)), beam_size)
-  encoded_inputs = decode.flat_batch_beam_expand(
-      model.encode(inputs, train=False, cache=None), beam_size)
+  src_padding_mask = decode.flat_batch_beam_expand((inputs > 0)[..., None], beam_size)
+  tgt_padding_mask = decode.flat_batch_beam_expand(jnp.ones((batch_size, 1, 1)), beam_size)
+  encoded_inputs = decode.flat_batch_beam_expand(model.encode(inputs, train=False, cache=None),
+                                                 beam_size)
 
   def tokens_ids_to_logits(flat_ids, flat_cache):
     """Token slice to logits from decoder model."""
@@ -406,14 +367,13 @@ def predict_step(inputs, model, cache, eos_token, max_decode_len,
 
   # Using the above-defined single-step decoder function, run a
   # beam search over possible sequences given input encoding.
-  beam_seqs, _ = decode.beam_search(
-      inputs,
-      cache,
-      tokens_ids_to_logits,
-      beam_size=beam_size,
-      alpha=0.6,
-      eos_token=eos_token,
-      max_decode_len=max_decode_len)
+  beam_seqs, _ = decode.beam_search(inputs,
+                                    cache,
+                                    tokens_ids_to_logits,
+                                    beam_size=beam_size,
+                                    alpha=0.6,
+                                    eos_token=eos_token,
+                                    max_decode_len=max_decode_len)
 
   # Beam search returns [n_batch, n_beam, n_length + 1] with beam dimension
   # sorted in increasing order of log-probability.
@@ -430,7 +390,7 @@ def pad_examples(x, desired_batch_size):
 def tohost(x):
   """Collect batches from all devices to host and flatten batch dimensions."""
   n_device, n_batch, *remaining_dims = x.shape
-  return np.array(x).reshape((n_device * n_batch,) + tuple(remaining_dims))
+  return np.array(x).reshape((n_device * n_batch, ) + tuple(remaining_dims))
 
 
 def main(argv):
@@ -444,10 +404,8 @@ def main(argv):
   n_devices = jax.local_device_count()
 
   if jax.host_id() == 0:
-    train_summary_writer = tensorboard.SummaryWriter(
-        os.path.join(FLAGS.model_dir, 'train'))
-    eval_summary_writer = tensorboard.SummaryWriter(
-        os.path.join(FLAGS.model_dir, 'eval'))
+    train_summary_writer = tensorboard.SummaryWriter(os.path.join(FLAGS.model_dir, 'train'))
+    eval_summary_writer = tensorboard.SummaryWriter(os.path.join(FLAGS.model_dir, 'eval'))
 
   if FLAGS.batch_size % n_devices:
     raise ValueError('Batch size must be divisible by the number of devices')
@@ -456,9 +414,7 @@ def main(argv):
   if vocab_path is None:
     # Since the subword vocab file can take some time to generate,
     # by default save and retrieve from parent directory containing model runs.
-    vocab_path = os.path.join(
-        os.path.join(*os.path.split(FLAGS.model_dir)[:1]),
-        'subwords.vocab')
+    vocab_path = os.path.join(os.path.join(*os.path.split(FLAGS.model_dir)[:1]), 'subwords.vocab')
 
   # Load Dataset.
   train_ds, eval_ds, predict_ds, encoder = input_pipeline.get_wmt_datasets(
@@ -471,6 +427,7 @@ def main(argv):
       max_eval_target_length=FLAGS.max_eval_target_length)
   vocab_size = encoder.vocab_size + 1
   eos_token = encoder.vocab_size
+
   def decode_tokens(toks):
     return encoder.decode(toks - eos_token * (toks == eos_token))
 
@@ -495,13 +452,8 @@ def main(argv):
   rng, init_rng = random.split(rng)
   input_shape = (FLAGS.batch_size, FLAGS.max_target_length)
   target_shape = (FLAGS.batch_size, FLAGS.max_target_length)
-  model, cache_def = create_model(init_rng,
-                                  input_shape,
-                                  target_shape,
-                                  transformer_kwargs)
-  optimizer = create_optimizer(model,
-                               FLAGS.learning_rate,
-                               FLAGS.weight_decay)
+  model, cache_def = create_model(init_rng, input_shape, target_shape, transformer_kwargs)
+  optimizer = create_optimizer(model, FLAGS.learning_rate, FLAGS.weight_decay)
   # We access model only from optimizer below via optimizer.target.
   del model
 
@@ -514,29 +466,21 @@ def main(argv):
   # Replicate optimizer over local devices.
   optimizer = jax_utils.replicate(optimizer)
 
-  learning_rate_fn = create_learning_rate_scheduler(
-      base_learning_rate=FLAGS.learning_rate,
-      warmup_steps=FLAGS.warmup_steps)
+  learning_rate_fn = create_learning_rate_scheduler(base_learning_rate=FLAGS.learning_rate,
+                                                    warmup_steps=FLAGS.warmup_steps)
 
-  p_train_step = jax.pmap(
-      functools.partial(
-          train_step,
-          learning_rate_fn=learning_rate_fn,
-          label_smoothing=FLAGS.label_smoothing,
-          use_bfloat16=FLAGS.use_bfloat16),
-      axis_name='batch')
-  p_eval_step = jax.pmap(
-      functools.partial(
-          eval_step,
-          label_smoothing=FLAGS.label_smoothing,
-          use_bfloat16=FLAGS.use_bfloat16),
-      axis_name='batch')
-  p_pred_step = jax.pmap(
-      functools.partial(
-        predict_step,
-        use_bfloat16=FLAGS.use_bfloat16),
-      axis_name='batch',
-      static_broadcasted_argnums=(3, 4))  # eos token, max_length are constant
+  p_train_step = jax.pmap(functools.partial(train_step,
+                                            learning_rate_fn=learning_rate_fn,
+                                            label_smoothing=FLAGS.label_smoothing,
+                                            use_bfloat16=FLAGS.use_bfloat16),
+                          axis_name='batch')
+  p_eval_step = jax.pmap(functools.partial(eval_step,
+                                           label_smoothing=FLAGS.label_smoothing,
+                                           use_bfloat16=FLAGS.use_bfloat16),
+                         axis_name='batch')
+  p_pred_step = jax.pmap(functools.partial(predict_step, use_bfloat16=FLAGS.use_bfloat16),
+                         axis_name='batch',
+                         static_broadcasted_argnums=(3, 4))  # eos token, max_length are constant
 
   # We init the first set of dropout PRNG keys, but update it afterwards inside
   # the main pmap'd training update for performance.
@@ -547,17 +491,13 @@ def main(argv):
   for step, batch in zip(range(start_step, FLAGS.num_train_steps), train_iter):
     # Shard data to devices and do a training step.
     batch = common_utils.shard(jax.tree_map(lambda x: x._numpy(), batch))  # pylint: disable=protected-access
-    optimizer, metrics, dropout_rngs = p_train_step(
-        optimizer, batch, dropout_rng=dropout_rngs)
+    optimizer, metrics, dropout_rngs = p_train_step(optimizer, batch, dropout_rng=dropout_rngs)
     metrics_all.append(metrics)
 
     # Save a checkpoint on one host after every checkpoint_freq steps.
-    if (FLAGS.save_checkpoints
-        and step % FLAGS.checkpoint_freq == 0 and step > 0
+    if (FLAGS.save_checkpoints and step % FLAGS.checkpoint_freq == 0 and step > 0
         and jax.host_id() == 0):
-        checkpoints.save_checkpoint(FLAGS.model_dir,
-                                    jax_utils.unreplicate(optimizer),
-                                    step)
+      checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(optimizer), step)
 
     # Periodic metric handling below.
     if step % FLAGS.eval_frequency != 0:
@@ -601,7 +541,7 @@ def main(argv):
       for key, val in eval_summary.items():
         eval_summary_writer.scalar(key, val, step)
       eval_summary_writer.flush()
-    logging.info('eval time: %.4f s step %d', time.time()-t_eval_start, step)
+    logging.info('eval time: %.4f s step %d', time.time() - t_eval_start, step)
 
     # Translation and BLEU score.
     t_inference_start = time.time()
@@ -612,21 +552,14 @@ def main(argv):
       # Handle final odd-sized batch by padding instead of dropping it.
       cur_pred_batch_size = pred_batch['inputs'].shape[0]
       if cur_pred_batch_size % n_devices:
-        logging.info('Translation: uneven batch size %d.',
-                      cur_pred_batch_size)
-        padded_size = int(
-            np.ceil(cur_pred_batch_size / n_devices) * n_devices)
-        pred_batch = jax.tree_map(
-            lambda x: pad_examples(x, padded_size), pred_batch)  # pylint: disable=cell-var-from-loop
+        logging.info('Translation: uneven batch size %d.', cur_pred_batch_size)
+        padded_size = int(np.ceil(cur_pred_batch_size / n_devices) * n_devices)
+        pred_batch = jax.tree_map(lambda x: pad_examples(x, padded_size), pred_batch)  # pylint: disable=cell-var-from-loop
       pred_batch = common_utils.shard(pred_batch)
       per_device_batch_size = pred_batch['inputs'].shape[1]
       cache = jax_utils.replicate(
-          cache_def.initialize_cache((per_device_batch_size,
-                                      FLAGS.max_predict_length)))
-      predicted = p_pred_step(pred_batch['inputs'],
-                              optimizer.target,
-                              cache,
-                              eos_token,
+          cache_def.initialize_cache((per_device_batch_size, FLAGS.max_predict_length)))
+      predicted = p_pred_step(pred_batch['inputs'], optimizer.target, cache, eos_token,
                               FLAGS.max_predict_length)
       predicted = tohost(predicted)
       inputs = tohost(pred_batch['inputs'])
@@ -641,10 +574,9 @@ def main(argv):
         except ValueError:
           logging.error('bad predicted tokens: %s', s)
           predictions.append('Wir haben technische Schwierigkeiten.')
-    logging.info('inference time: %.4f s step %d.',
-                  time.time()-t_inference_start, step)
-    logging.info('Translation: %d predictions %d references %d sources.',
-                  len(predictions), len(references), len(sources))
+    logging.info('inference time: %.4f s step %d.', time.time() - t_inference_start, step)
+    logging.info('Translation: %d predictions %d references %d sources.', len(predictions),
+                 len(references), len(sources))
 
     # Calculate BLEU score for translated eval corpus against reference.
     bleu_score = bleu.bleu_local(references, predictions)

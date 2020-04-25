@@ -42,9 +42,13 @@ class LARS(OptimizerDef):
   
   See https://arxiv.org/abs/1708.03888
   """
-
-  def __init__(self, learning_rate=None, beta=0.9, weight_decay=0,
-               trust_coefficient=0.001, eps=0, nesterov=False):
+  def __init__(self,
+               learning_rate=None,
+               beta=0.9,
+               weight_decay=0,
+               trust_coefficient=0.001,
+               eps=0,
+               nesterov=False):
     """Constructor for the LARS optimizer.
 
     Args:
@@ -58,8 +62,8 @@ class LARS(OptimizerDef):
       nesterov: whether to use Nesterov momentum (default: False).
     """
 
-    hyper_params = _LARSHyperParams(
-        learning_rate, beta, weight_decay, trust_coefficient, eps, nesterov)
+    hyper_params = _LARSHyperParams(learning_rate, beta, weight_decay, trust_coefficient, eps,
+                                    nesterov)
     super().__init__(hyper_params)
 
   def init_param_state(self, param):
@@ -73,8 +77,7 @@ class LARS(OptimizerDef):
     grad_norm = jnp.linalg.norm(grad)
     trust_ratio = hyper_params.trust_coefficient * param_norm / (
         grad_norm + hyper_params.weight_decay * param_norm + hyper_params.eps)
-    clipped_trust_ratio = jnp.where(
-        param_norm + grad_norm > 0., trust_ratio, 1.)
+    clipped_trust_ratio = jnp.where(param_norm + grad_norm > 0., trust_ratio, 1.)
     scaled_lr = hyper_params.learning_rate * clipped_trust_ratio
     if hyper_params.weight_decay != 0:
       grad += hyper_params.weight_decay * param

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for flax.nn.attention."""
 
 from absl.testing import absltest
@@ -33,7 +32,6 @@ jax.config.parse_flags_with_absl()
 
 
 class AttentionTest(parameterized.TestCase):
-
   def test_multihead_self_attention(self):
     rng = random.PRNGKey(0)
     x = jnp.ones((4, 2, 3, 5))
@@ -80,13 +78,15 @@ class AttentionTest(parameterized.TestCase):
   def test_causal_mask_1d(self):
     """Tests autoregresive masking for 1d attention."""
     key = jnp.ones((4, 5, 2, 16))  # (bs, dim1, dim2, heads, channel)
-    att_axis = (1,)
-    mask_1d = nn.attention._make_causal_mask(
-        key, attention_axis=att_axis, self_mask=False)
+    att_axis = (1, )
+    mask_1d = nn.attention._make_causal_mask(key, attention_axis=att_axis, self_mask=False)
 
     ts = onp.arange(key.shape[1])
     mask_1d_simple = (ts[:, None] >= ts[None, :])[None, None, :, :]
-    onp.testing.assert_allclose(mask_1d, mask_1d_simple,)
+    onp.testing.assert_allclose(
+        mask_1d,
+        mask_1d_simple,
+    )
 
   def test_causal_mask_2d(self):
     """Tests autoregresive masking for 2d attention."""
@@ -95,51 +95,50 @@ class AttentionTest(parameterized.TestCase):
     # masking when dealing with nd attention weights
     # w_nd_shape = (4, 5, 5, 5, 5, 2)
     att_axis = (1, 2)
-    mask_nd = nn.attention._make_causal_mask(
-        key, attention_axis=att_axis, self_mask=False)
+    mask_nd = nn.attention._make_causal_mask(key, attention_axis=att_axis, self_mask=False)
 
     # masking when dealing with 1d attention weights
     # w_1d_shape = (4, 5*5, 5*5, 2)
     ts = onp.arange(25)
     mask_1d = (ts[:, None] >= ts[None, :])[None, None, :, :]
 
-    onp.testing.assert_allclose(mask_nd.reshape(mask_1d.shape), mask_1d,
-                                atol=1e-9)
+    onp.testing.assert_allclose(mask_nd.reshape(mask_1d.shape), mask_1d, atol=1e-9)
 
-  @parameterized.parameters([((5,), (1,)),
-                             ((5, 6), (1,)),
-                             ((5, 6), (2,)),
-                             ((5, 6), (1, 2)),])
+  @parameterized.parameters([
+      ((5, ), (1, )),
+      ((5, 6), (1, )),
+      ((5, 6), (2, )),
+      ((5, 6), (1, 2)),
+  ])
   def test_decoding(self, spatial_shape, attn_dims):
     bs = 2
     num_heads = 3
     num_features = 4
     rng = random.PRNGKey(0)
     key1, key2 = random.split(rng)
-    inputs = random.normal(
-        key1, (bs,) + spatial_shape + (num_heads * num_features,))
-    module = nn.SelfAttention.partial(
-        num_heads=num_heads,
-        qkv_features=num_heads * num_features,
-        attention_axis=attn_dims,
-        causal_mask=True,
-        precision=lax.Precision.HIGHEST)
+    inputs = random.normal(key1, (bs, ) + spatial_shape + (num_heads * num_features, ))
+    module = nn.SelfAttention.partial(num_heads=num_heads,
+                                      qkv_features=num_heads * num_features,
+                                      attention_axis=attn_dims,
+                                      causal_mask=True,
+                                      precision=lax.Precision.HIGHEST)
 
     with nn.attention.Cache().mutate() as cache_def:
-      _, initial_params = module.init_by_shape(
-          key2, [(inputs.shape, inputs.dtype)], cache=cache_def)
+      _, initial_params = module.init_by_shape(key2, [(inputs.shape, inputs.dtype)],
+                                               cache=cache_def)
     model = nn.Model(module, initial_params)
     y_ref = jax.jit(lambda f, x: f(x))(model, inputs)
 
     # feed the inputs sequentially to simulate decoding
-    cache0 = cache_def.initialize_cache((bs,) + spatial_shape)
+    cache0 = cache_def.initialize_cache((bs, ) + spatial_shape)
+
     def body_fn(cache, x):
       with cache.mutate() as new_cache:
         y = model(x, cache=new_cache)
       return new_cache, y
+
     # scan_in_dim supports scanning multiple dims
-    _, y = jax_utils.scan_in_dim(body_fn, cache0, inputs,
-                                    axis=attn_dims, keepdims=True)
+    _, y = jax_utils.scan_in_dim(body_fn, cache0, inputs, axis=attn_dims, keepdims=True)
 
     onp.testing.assert_allclose(y_ref, y, atol=1e-5)
 
@@ -166,15 +165,11 @@ class AttentionTest(parameterized.TestCase):
     input_shape = (1, length, dim)
     inputs = random.normal(rng2, input_shape)
 
-    module = nn.attention.SelfAttention.partial(
-        num_heads=num_heads,
-        causal_mask=True,
-        kernel_init=jax.nn.initializers.ones)
-    _, initial_params = module.init_by_shape(
-        rng1, [((1,) + (length, dim), jnp.float32)])
+    module = nn.attention.SelfAttention.partial(num_heads=num_heads,
+                                                causal_mask=True,
+                                                kernel_init=jax.nn.initializers.ones)
+    _, initial_params = module.init_by_shape(rng1, [((1, ) + (length, dim), jnp.float32)])
     model = nn.Model(module, initial_params)
-
-
 
     for i in range(length):
       deps = get_receptive_field_1d(i)

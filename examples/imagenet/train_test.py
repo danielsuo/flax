@@ -31,10 +31,8 @@ jax.config.parse_flags_with_absl()
 
 
 class TrainTest(absltest.TestCase):
-
   def test_create_model(self):
-    model, state = train.create_model(
-        random.PRNGKey(0), 8, 224, jnp.float32)
+    model, state = train.create_model(random.PRNGKey(0), 8, 224, jnp.float32)
     x = random.normal(random.PRNGKey(1), (8, 224, 224, 3))
     with nn.stateful(state) as new_state:
       y = model(x)

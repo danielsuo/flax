@@ -37,9 +37,7 @@ class _MomentumParamState:
 
 class Momentum(OptimizerDef):
   """Momentum optimizer."""
-
-  def __init__(self, learning_rate=None, beta=0.9, weight_decay=0,
-               nesterov=False):
+  def __init__(self, learning_rate=None, beta=0.9, weight_decay=0, nesterov=False):
     """Constructor for the Momentum optimizer.
 
     Args:
@@ -50,8 +48,7 @@ class Momentum(OptimizerDef):
       nesterov: whether to use Nesterov momentum (default: False).
     """
 
-    hyper_params = _MomentumHyperParams(
-        learning_rate, beta, weight_decay, nesterov)
+    hyper_params = _MomentumHyperParams(learning_rate, beta, weight_decay, nesterov)
     super().__init__(hyper_params)
 
   def init_param_state(self, param):

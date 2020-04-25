@@ -45,56 +45,45 @@ import jax.numpy as jnp
 
 import tensorflow.compat.v2 as tf
 
-
 FLAGS = flags.FLAGS
 
-flags.DEFINE_float(
-    'learning_rate', default=0.1,
-    help=('The learning rate for the momentum optimizer.'))
+flags.DEFINE_float('learning_rate',
+                   default=0.1,
+                   help=('The learning rate for the momentum optimizer.'))
 
-flags.DEFINE_float(
-    'momentum', default=0.9,
-    help=('The decay rate used for the momentum optimizer.'))
+flags.DEFINE_float('momentum',
+                   default=0.9,
+                   help=('The decay rate used for the momentum optimizer.'))
 
-flags.DEFINE_integer(
-    'batch_size', default=128,
-    help=('Batch size for training.'))
+flags.DEFINE_integer('batch_size', default=128, help=('Batch size for training.'))
 
-flags.DEFINE_bool(
-    'cache', default=False,
-    help=('If True, cache the dataset.'))
+flags.DEFINE_bool('cache', default=False, help=('If True, cache the dataset.'))
 
-flags.DEFINE_integer(
-    'num_epochs', default=90,
-    help=('Number of training epochs.'))
+flags.DEFINE_integer('num_epochs', default=90, help=('Number of training epochs.'))
 
-flags.DEFINE_string(
-    'model_dir', default=None,
-    help=('Directory to store model data.'))
+flags.DEFINE_string('model_dir', default=None, help=('Directory to store model data.'))
 
-flags.DEFINE_bool(
-    'half_precision', default=False,
-    help=('If bfloat16/float16 should be used instead of float32.'))
+flags.DEFINE_bool('half_precision',
+                  default=False,
+                  help=('If bfloat16/float16 should be used instead of float32.'))
 
-flags.DEFINE_float(
-    'loss_scaling', default=1.,
-    help=('Rescale the loss to avoid underflow when training with'
-          ' reduced precision'))
+flags.DEFINE_float('loss_scaling',
+                   default=1.,
+                   help=('Rescale the loss to avoid underflow when training with'
+                         ' reduced precision'))
 
 
 def create_model(key, batch_size, image_size, model_dtype):
   input_shape = (batch_size, image_size, image_size, 3)
   module = models.ResNet.partial(num_classes=1000, dtype=model_dtype)
   with nn.stateful() as init_state:
-    _, initial_params = module.init_by_shape(
-        key, [(input_shape, model_dtype)])
+    _, initial_params = module.init_by_shape(key, [(input_shape, model_dtype)])
     model = nn.Model(module, initial_params)
   return model, init_state
 
 
 def cross_entropy_loss(logits, labels):
-  return -jnp.sum(
-      common_utils.onehot(labels, num_classes=1000) * logits) / labels.size
+  return -jnp.sum(common_utils.onehot(labels, num_classes=1000) * logits) / labels.size
 
 
 def compute_metrics(logits, labels):
@@ -116,13 +105,13 @@ def cosine_decay(lr, step, total_steps):
 
 def create_learning_rate_fn(base_learning_rate, steps_per_epoch, num_epochs):
   warmup_epochs = 5
+
   def step_fn(step):
     epoch = step / steps_per_epoch
-    lr = cosine_decay(base_learning_rate,
-                      epoch - warmup_epochs,
-                      num_epochs - warmup_epochs)
+    lr = cosine_decay(base_learning_rate, epoch - warmup_epochs, num_epochs - warmup_epochs)
     warmup = jnp.minimum(1., epoch / warmup_epochs)
     return lr * warmup
+
   return step_fn
 
 
@@ -135,9 +124,7 @@ def train_step(state, batch, learning_rate_fn):
     loss = cross_entropy_loss(logits, batch['label'])
     weight_penalty_params = jax.tree_leaves(model.params)
     weight_decay = 0.0001
-    weight_l2 = sum([jnp.sum(x ** 2)
-                     for x in weight_penalty_params
-                     if x.ndim > 1])
+    weight_l2 = sum([jnp.sum(x**2) for x in weight_penalty_params if x.ndim > 1])
     weight_penalty = weight_decay * 0.5 * weight_l2
     loss = loss + weight_penalty
     return loss * FLAGS.loss_scaling, (new_model_state, logits)
@@ -153,8 +140,7 @@ def train_step(state, batch, learning_rate_fn):
   metrics = compute_metrics(logits, batch['label'])
   metrics['learning_rate'] = lr * FLAGS.loss_scaling
 
-  new_state = state.replace(
-      step=step + 1, optimizer=new_optimizer, model_state=new_model_state)
+  new_state = state.replace(step=step + 1, optimizer=new_optimizer, model_state=new_model_state)
   return new_state, metrics
 
 
@@ -168,6 +154,7 @@ def eval_step(state, batch):
 def prepare_tf_data(xs):
   """Convert a input batch from tf Tensors to numpy arrays."""
   local_device_count = jax.local_device_count()
+
   def _prepare(x):
     # Use _numpy() for zero-copy conversion between TF and NumPy.
     x = x._numpy()  # pylint: disable=protected-access
@@ -180,8 +167,11 @@ def prepare_tf_data(xs):
 
 
 def create_input_iter(batch_size, image_size, dtype, train, cache):
-  ds = input_pipeline.load_split(
-      batch_size, image_size=image_size, dtype=dtype, train=train, cache=cache)
+  ds = input_pipeline.load_split(batch_size,
+                                 image_size=image_size,
+                                 dtype=dtype,
+                                 train=train,
+                                 cache=cache)
   it = map(prepare_tf_data, ds)
   it = jax_utils.prefetch_to_device(it, 2)
   return it
@@ -248,10 +238,16 @@ def main(argv):
     model_dtype = jnp.float32
     input_dtype = tf.float32
 
-  train_iter = create_input_iter(
-      local_batch_size, image_size, input_dtype, train=True, cache=FLAGS.cache)
-  eval_iter = create_input_iter(
-      local_batch_size, image_size, input_dtype, train=False, cache=FLAGS.cache)
+  train_iter = create_input_iter(local_batch_size,
+                                 image_size,
+                                 input_dtype,
+                                 train=True,
+                                 cache=FLAGS.cache)
+  eval_iter = create_input_iter(local_batch_size,
+                                image_size,
+                                input_dtype,
+                                train=False,
+                                cache=FLAGS.cache)
 
   num_epochs = FLAGS.num_epochs
   steps_per_epoch = input_pipeline.TRAIN_IMAGES // batch_size
@@ -262,8 +258,7 @@ def main(argv):
   base_learning_rate = FLAGS.learning_rate * batch_size / 256.
   base_learning_rate = base_learning_rate / FLAGS.loss_scaling
 
-  model, model_state = create_model(
-      rng, device_batch_size, image_size, model_dtype)
+  model, model_state = create_model(rng, device_batch_size, image_size, model_dtype)
   optimizer = optim.Momentum(beta=FLAGS.momentum, nesterov=True).create(model)
   state = TrainState(step=0, optimizer=optimizer, model_state=model_state)
   del model, model_state  # do not keep a copy of the initial model
@@ -272,12 +267,10 @@ def main(argv):
   step_offset = int(state.step)  # step_offset > 0 if restarting from checkpoint
   state = jax_utils.replicate(state)
 
-  learning_rate_fn = create_learning_rate_fn(
-      base_learning_rate, steps_per_epoch, num_epochs)
+  learning_rate_fn = create_learning_rate_fn(base_learning_rate, steps_per_epoch, num_epochs)
 
-  p_train_step = jax.pmap(
-      functools.partial(train_step, learning_rate_fn=learning_rate_fn),
-      axis_name='batch')
+  p_train_step = jax.pmap(functools.partial(train_step, learning_rate_fn=learning_rate_fn),
+                          axis_name='batch')
   p_eval_step = jax.pmap(eval_step, axis_name='batch')
 
   epoch_metrics = []
@@ -289,8 +282,8 @@ def main(argv):
       epoch = step // steps_per_epoch
       epoch_metrics = common_utils.get_metrics(epoch_metrics)
       summary = jax.tree_map(lambda x: x.mean(), epoch_metrics)
-      logging.info('train epoch: %d, loss: %.4f, accuracy: %.2f',
-                   epoch, summary['loss'], summary['accuracy'] * 100)
+      logging.info('train epoch: %d, loss: %.4f, accuracy: %.2f', epoch, summary['loss'],
+                   summary['accuracy'] * 100)
       steps_per_sec = steps_per_epoch / (time.time() - t_loop_start)
       t_loop_start = time.time()
       if jax.host_id() == 0:
@@ -311,8 +304,8 @@ def main(argv):
         eval_metrics.append(metrics)
       eval_metrics = common_utils.get_metrics(eval_metrics)
       summary = jax.tree_map(lambda x: x.mean(), eval_metrics)
-      logging.info('eval epoch: %d, loss: %.4f, accuracy: %.2f',
-                   epoch, summary['loss'], summary['accuracy'] * 100)
+      logging.info('eval epoch: %d, loss: %.4f, accuracy: %.2f', epoch, summary['loss'],
+                   summary['accuracy'] * 100)
       if jax.host_id() == 0:
         for key, val in eval_metrics.items():
           tag = 'eval_%s' % key
@@ -324,6 +317,7 @@ def main(argv):
 
   # Wait until computations are done before exiting
   jax.random.normal(jax.random.PRNGKey(0), ()).block_until_ready()
+
 
 if __name__ == '__main__':
   app.run(main)

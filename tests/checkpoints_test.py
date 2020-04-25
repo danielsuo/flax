@@ -37,7 +37,6 @@ def shuffle(l):
 
 
 class CheckpointsTest(absltest.TestCase):
-
   def test_naturalsort(self):
     np.random.seed(0)
     tests = [
@@ -52,73 +51,48 @@ class CheckpointsTest(absltest.TestCase):
 
   def test_save_restore_checkpoints(self):
     tmp_dir = self.create_tempdir().full_path
-    test_object0 = {'a': np.array([0, 0, 0], np.int32),
-                    'b': np.array([0, 0, 0], np.int32)}
-    test_object1 = {'a': np.array([1, 2, 3], np.int32),
-                    'b': np.array([1, 1, 1], np.int32)}
-    test_object2 = {'a': np.array([4, 5, 6], np.int32),
-                    'b': np.array([2, 2, 2], np.int32)}
-    new_object = checkpoints.restore_checkpoint(
-        tmp_dir, test_object0, prefix='test_')
+    test_object0 = {'a': np.array([0, 0, 0], np.int32), 'b': np.array([0, 0, 0], np.int32)}
+    test_object1 = {'a': np.array([1, 2, 3], np.int32), 'b': np.array([1, 1, 1], np.int32)}
+    test_object2 = {'a': np.array([4, 5, 6], np.int32), 'b': np.array([2, 2, 2], np.int32)}
+    new_object = checkpoints.restore_checkpoint(tmp_dir, test_object0, prefix='test_')
     jtu.check_eq(new_object, test_object0)
     # Create leftover temporary checkpoint, which should be ignored.
     gfile.GFile(os.path.join(tmp_dir, 'test_tmp'), 'w')
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object1, 0, prefix='test_', keep=1)
+    checkpoints.save_checkpoint(tmp_dir, test_object1, 0, prefix='test_', keep=1)
     self.assertIn('test_0', os.listdir(tmp_dir))
-    new_object = checkpoints.restore_checkpoint(
-        tmp_dir, test_object0, prefix='test_')
+    new_object = checkpoints.restore_checkpoint(tmp_dir, test_object0, prefix='test_')
     jtu.check_eq(new_object, test_object1)
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object1, 1, prefix='test_', keep=1)
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object2, 2, prefix='test_', keep=1)
-    new_object = checkpoints.restore_checkpoint(
-        tmp_dir, test_object0, prefix='test_')
+    checkpoints.save_checkpoint(tmp_dir, test_object1, 1, prefix='test_', keep=1)
+    checkpoints.save_checkpoint(tmp_dir, test_object2, 2, prefix='test_', keep=1)
+    new_object = checkpoints.restore_checkpoint(tmp_dir, test_object0, prefix='test_')
     jtu.check_eq(new_object, test_object2)
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object2, 3, prefix='test_', keep=2)
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object1, 4, prefix='test_', keep=2)
-    new_object = checkpoints.restore_checkpoint(
-        tmp_dir, test_object0, prefix='test_')
+    checkpoints.save_checkpoint(tmp_dir, test_object2, 3, prefix='test_', keep=2)
+    checkpoints.save_checkpoint(tmp_dir, test_object1, 4, prefix='test_', keep=2)
+    new_object = checkpoints.restore_checkpoint(tmp_dir, test_object0, prefix='test_')
     jtu.check_eq(new_object, test_object1)
-    new_object = checkpoints.restore_checkpoint(
-        tmp_dir, test_object0, step=3, prefix='test_')
+    new_object = checkpoints.restore_checkpoint(tmp_dir, test_object0, step=3, prefix='test_')
     jtu.check_eq(new_object, test_object2)
     with self.assertRaises(ValueError):
-      checkpoints.restore_checkpoint(
-          tmp_dir, test_object0, step=5, prefix='test_')
+      checkpoints.restore_checkpoint(tmp_dir, test_object0, step=5, prefix='test_')
 
   def test_save_restore_checkpoints_w_float_steps(self):
     tmp_dir = self.create_tempdir().full_path
-    test_object0 = {'a': np.array([0, 0, 0], np.int32),
-                    'b': np.array([0, 0, 0], np.int32)}
-    test_object1 = {'a': np.array([1, 2, 3], np.int32),
-                    'b': np.array([1, 1, 1], np.int32)}
-    test_object2 = {'a': np.array([4, 5, 6], np.int32),
-                    'b': np.array([2, 2, 2], np.int32)}
+    test_object0 = {'a': np.array([0, 0, 0], np.int32), 'b': np.array([0, 0, 0], np.int32)}
+    test_object1 = {'a': np.array([1, 2, 3], np.int32), 'b': np.array([1, 1, 1], np.int32)}
+    test_object2 = {'a': np.array([4, 5, 6], np.int32), 'b': np.array([2, 2, 2], np.int32)}
     # Create leftover temporary checkpoint, which should be ignored.
     gfile.GFile(os.path.join(tmp_dir, 'test_tmp'), 'w')
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object1, 0.0, prefix='test_', keep=1)
+    checkpoints.save_checkpoint(tmp_dir, test_object1, 0.0, prefix='test_', keep=1)
     self.assertIn('test_0.0', os.listdir(tmp_dir))
-    new_object = checkpoints.restore_checkpoint(
-        tmp_dir, test_object0, prefix='test_')
+    new_object = checkpoints.restore_checkpoint(tmp_dir, test_object0, prefix='test_')
     jtu.check_eq(new_object, test_object1)
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object1, 2.0, prefix='test_', keep=1)
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object2, 1.0, prefix='test_', keep=1)
-    new_object = checkpoints.restore_checkpoint(
-        tmp_dir, test_object0, prefix='test_')
+    checkpoints.save_checkpoint(tmp_dir, test_object1, 2.0, prefix='test_', keep=1)
+    checkpoints.save_checkpoint(tmp_dir, test_object2, 1.0, prefix='test_', keep=1)
+    new_object = checkpoints.restore_checkpoint(tmp_dir, test_object0, prefix='test_')
     jtu.check_eq(new_object, test_object1)
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object2, 3.0, prefix='test_', keep=2)
-    checkpoints.save_checkpoint(
-        tmp_dir, test_object1, -1.0, prefix='test_', keep=2)
-    new_object = checkpoints.restore_checkpoint(
-        tmp_dir, test_object0, prefix='test_')
+    checkpoints.save_checkpoint(tmp_dir, test_object2, 3.0, prefix='test_', keep=2)
+    checkpoints.save_checkpoint(tmp_dir, test_object1, -1.0, prefix='test_', keep=2)
+    new_object = checkpoints.restore_checkpoint(tmp_dir, test_object0, prefix='test_')
     self.assertIn('test_3.0', os.listdir(tmp_dir))
     self.assertIn('test_2.0', os.listdir(tmp_dir))
     jtu.check_eq(new_object, test_object2)

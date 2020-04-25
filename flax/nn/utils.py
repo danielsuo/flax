@@ -22,7 +22,6 @@ import jax
 
 class CallStack(object):
   """Utility for tracking data across a call stack."""
-
   def __init__(self):
     self._stack = threading.local()
 
@@ -54,9 +53,7 @@ class CallStack(object):
 
 def classproperty(f):
   """decorator that registers a function as a read-only property of the class."""
-
   class _ClassProperty:
-
     def __get__(self, _, cls):
       # python will call the __get__ magic function whenever the property is
       # read from the class.

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Common utils used in Flax examples."""
 
 import jax
@@ -22,8 +21,7 @@ import numpy as onp
 
 def shard(xs):
   local_device_count = jax.local_device_count()
-  return jax.tree_map(
-      lambda x: x.reshape((local_device_count, -1) + x.shape[1:]), xs)
+  return jax.tree_map(lambda x: x.reshape((local_device_count, -1) + x.shape[1:]), xs)
 
 
 def shard_prng_key(prng_key):

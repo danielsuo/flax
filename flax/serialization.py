@@ -38,7 +38,6 @@ import jax
 import msgpack
 import numpy as np
 
-
 _STATE_DICT_REGISTRY = {}
 
 
@@ -96,8 +95,7 @@ def to_state_dict(target):
   return state_dict
 
 
-def register_serialization_state(ty, ty_to_state_dict, ty_from_state_dict,
-                                 override=False):
+def register_serialization_state(ty, ty_to_state_dict, ty_from_state_dict, override=False):
   """Register a type for serialization.
 
   Args:
@@ -110,8 +108,7 @@ def register_serialization_state(ty, ty_to_state_dict, ty_from_state_dict,
       (default: False).
   """
   if ty in _STATE_DICT_REGISTRY and not override:
-    raise ValueError(f'a serialization handler for "{ty.__name__}"'
-                     ' is already registered')
+    raise ValueError(f'a serialization handler for "{ty.__name__}"' ' is already registered')
   _STATE_DICT_REGISTRY[ty] = (ty_to_state_dict, ty_from_state_dict)
 
 
@@ -135,17 +132,17 @@ def _dict_state_dict(xs):
 
 
 def _restore_dict(xs, states):
-  return {key: from_state_dict(value, states[key])
-          for key, value in xs.items()}
+  return {key: from_state_dict(value, states[key]) for key, value in xs.items()}
 
 
 def _namedtuple_state_dict(nt):
-  return {'name': nt.__class__.__name__,
-          'fields': {str(i): to_state_dict(x)
-                     for i, x in enumerate(nt._fields)},
-          'values': {str(i): to_state_dict(x)
-                     for i, x in enumerate(nt)}
-         }
+  return {
+      'name': nt.__class__.__name__,
+      'fields': {str(i): to_state_dict(x)
+                 for i, x in enumerate(nt._fields)},
+      'values': {str(i): to_state_dict(x)
+                 for i, x in enumerate(nt)}
+  }
 
 
 def _restore_namedtuple(xs, state_dict):
@@ -154,8 +151,7 @@ def _restore_namedtuple(xs, state_dict):
     raise ValueError(f'The size of the list and the state dict do not match,'
                      ' got {len(xs)} and {len(state_dict["values"])}.')
   fields = [state_dict['fields'][str(i)] for i in range(len(xs))]
-  namedtuple_class = collections.namedtuple(
-      state_dict['name'], fields)
+  namedtuple_class = collections.namedtuple(state_dict['name'], fields)
   ys = []
   for i in range(len(state_dict['values'])):
     y = from_state_dict(xs[i], state_dict['values'][str(i)])
@@ -165,13 +161,9 @@ def _restore_namedtuple(xs, state_dict):
 
 register_serialization_state(dict, _dict_state_dict, _restore_dict)
 register_serialization_state(list, _list_state_dict, _restore_list)
-register_serialization_state(
-    tuple, _list_state_dict,
-    lambda xs, state_dict: tuple(_restore_list(list(xs), state_dict)))
-register_serialization_state(_NamedTuple,
-                             _namedtuple_state_dict,
-                             _restore_namedtuple)
-
+register_serialization_state(tuple, _list_state_dict,
+                             lambda xs, state_dict: tuple(_restore_list(list(xs), state_dict)))
+register_serialization_state(_NamedTuple, _namedtuple_state_dict, _restore_namedtuple)
 
 # On-the-wire / disk serialization format
 
@@ -191,8 +183,7 @@ def _ndarray_to_bytes(arr):
   if isinstance(arr, jax.xla.DeviceArray):
     arr = np.array(arr)
   if arr.dtype.hasobject or arr.dtype.isalignedstruct:
-    raise ValueError('Object and structured dtypes not supported '
-                     'for serialization of ndarrays.')
+    raise ValueError('Object and structured dtypes not supported ' 'for serialization of ndarrays.')
   tpl = (arr.shape, arr.dtype.str, arr.tobytes('C'))
   return msgpack.packb(tpl, use_bin_type=True)
 
@@ -200,10 +191,7 @@ def _ndarray_to_bytes(arr):
 def _ndarray_from_bytes(data):
   """Load ndarray from simple msgpack encoding."""
   shape, dtype_str, buffer = msgpack.unpackb(data, raw=True)
-  return np.frombuffer(buffer,
-                       dtype=dtype_str,
-                       count=-1,
-                       offset=0).reshape(shape, order='C')
+  return np.frombuffer(buffer, dtype=dtype_str, count=-1, offset=0).reshape(shape, order='C')
 
 
 class _MsgpackExtType(enum.IntEnum):
@@ -217,8 +205,7 @@ def _msgpack_ext_pack(x):
   if isinstance(x, (np.ndarray, jax.xla.DeviceArray)):
     return msgpack.ExtType(_MsgpackExtType.ndarray, _ndarray_to_bytes(x))
   elif isinstance(x, complex):
-    return msgpack.ExtType(_MsgpackExtType.native_complex,
-                           msgpack.packb((x.real, x.imag)))
+    return msgpack.ExtType(_MsgpackExtType.native_complex, msgpack.packb((x.real, x.imag)))
   return x
 
 
@@ -264,8 +251,7 @@ def msgpack_restore(encoded_pytree):
     Python tree of dict, list, tuple with python primitive
     and array leaves.
   """
-  return msgpack.unpackb(
-      encoded_pytree, ext_hook=_msgpack_ext_unpack, raw=False)
+  return msgpack.unpackb(encoded_pytree, ext_hook=_msgpack_ext_unpack, raw=False)
 
 
 def from_bytes(target, encoded_bytes):

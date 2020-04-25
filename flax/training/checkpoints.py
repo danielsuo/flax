@@ -28,14 +28,11 @@ from absl import logging
 from flax import serialization
 from tensorflow.compat.v2.io import gfile
 
-
 # Single-group reg-exps for int or float numerical substrings.
 # captures sign:
-SIGNED_FLOAT_RE = re.compile(
-    r'([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)')
+SIGNED_FLOAT_RE = re.compile(r'([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)')
 # does not capture sign:
-UNSIGNED_FLOAT_RE = re.compile(
-    r'[-+]?((?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)')
+UNSIGNED_FLOAT_RE = re.compile(r'[-+]?((?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)')
 
 
 def _checkpoint_path(ckpt_dir, step, prefix='checkpoint_'):
@@ -57,21 +54,20 @@ def natural_sort(file_list, signed=True):
     file_0.1, file_-0.2, file_2.0  -->  file_-0.2, file_0.1, file_2.0
   """
   float_re = SIGNED_FLOAT_RE if signed else UNSIGNED_FLOAT_RE
+
   def maybe_num(s):
     if float_re.match(s):
       return float(s)
     else:
       return s
+
   def split_keys(s):
     return [maybe_num(c) for c in float_re.split(s)]
+
   return sorted(file_list, key=split_keys)
 
 
-def save_checkpoint(ckpt_dir,
-                    target,
-                    step,
-                    prefix='checkpoint_',
-                    keep=1):
+def save_checkpoint(ckpt_dir, target, step, prefix='checkpoint_', keep=1):
   """Save a checkpoint of the model.
 
   Attempts to be pre-emption safe by writing to temporary before

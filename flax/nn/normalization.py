@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Normalization modules for Flax."""
 
 from . import base
@@ -19,7 +18,6 @@ from . import base
 from jax import lax
 from jax.nn import initializers
 import jax.numpy as jnp
-
 
 _no_init = lambda rng, shape: ()
 
@@ -30,7 +28,6 @@ def _absolute_dims(rank, dims):
 
 class BatchNorm(base.Module):
   """BatchNorm Module."""
-
   def apply(self,
             x,
             batch_stats=None,
@@ -70,24 +67,24 @@ class BatchNorm(base.Module):
       Normalized inputs (this same shape as inputs).
     """
     x = jnp.asarray(x, jnp.float32)
-    axis = axis if isinstance(axis, tuple) else (axis,)
+    axis = axis if isinstance(axis, tuple) else (axis, )
     axis = _absolute_dims(x.ndim, axis)
     feature_shape = tuple(d if i in axis else 1 for i, d in enumerate(x.shape))
     reduced_feature_shape = tuple(d for i, d in enumerate(x.shape) if i in axis)
     reduction_axis = tuple(i for i in range(x.ndim) if i not in axis)
     if self.is_stateful() or batch_stats:
-      ra_mean = self.state('mean', reduced_feature_shape,
-                           initializers.zeros, collection=batch_stats)
-      ra_var = self.state('var', reduced_feature_shape,
-                          initializers.ones, collection=batch_stats)
+      ra_mean = self.state('mean',
+                           reduced_feature_shape,
+                           initializers.zeros,
+                           collection=batch_stats)
+      ra_var = self.state('var', reduced_feature_shape, initializers.ones, collection=batch_stats)
     else:
       ra_mean = None
       ra_var = None
 
     if use_running_average:
       if ra_mean is None:
-        raise ValueError('batch_stats should be provided if '
-                         'use_running_averages is True')
+        raise ValueError('batch_stats should be provided if ' 'use_running_averages is True')
       mean, var = ra_mean.value, ra_var.value
     else:
       mean = jnp.mean(x, axis=reduction_axis, keepdims=False)
@@ -106,12 +103,10 @@ class BatchNorm(base.Module):
     y = x - mean.reshape(feature_shape)
     mul = lax.rsqrt(var + epsilon)
     if scale:
-      mul = mul * self.param(
-          'scale', reduced_feature_shape, scale_init).reshape(feature_shape)
+      mul = mul * self.param('scale', reduced_feature_shape, scale_init).reshape(feature_shape)
     y = y * mul
     if bias:
-      y = y + self.param(
-          'bias', reduced_feature_shape, bias_init).reshape(feature_shape)
+      y = y + self.param('bias', reduced_feature_shape, bias_init).reshape(feature_shape)
     return jnp.asarray(y, dtype)
 
 
@@ -120,7 +115,6 @@ class LayerNorm(base.Module):
 
   Operates on the last axis of the input data.
   """
-
   def apply(self,
             x,
             epsilon=1e-6,
@@ -157,17 +151,15 @@ class LayerNorm(base.Module):
     var = mean2 - lax.square(mean)
     mul = lax.rsqrt(var + epsilon)
     if scale:
-      mul = mul * jnp.asarray(self.param('scale', (features,), scale_init),
-                              dtype)
+      mul = mul * jnp.asarray(self.param('scale', (features, ), scale_init), dtype)
     y = (x - mean) * mul
     if bias:
-      y = y + jnp.asarray(self.param('bias', (features,), bias_init), dtype)
+      y = y + jnp.asarray(self.param('bias', (features, ), bias_init), dtype)
     return y
 
 
 class GroupNorm(base.Module):
   """Group normalization (arxiv.org/abs/1803.08494)."""
-
   def apply(self,
             x,
             num_groups=32,
@@ -209,8 +201,8 @@ class GroupNorm(base.Module):
 
     """
     x = jnp.asarray(x, jnp.float32)
-    if ((num_groups is None and group_size is None) or
-        (num_groups is not None and group_size is not None)):
+    if ((num_groups is None and group_size is None)
+        or (num_groups is not None and group_size is not None)):
       raise ValueError('Either `num_groups` or `group_size` should be '
                        'specified, but not both of them.')
 
@@ -229,8 +221,7 @@ class GroupNorm(base.Module):
     reduction_axis = [d for d in range(1, x.ndim - 2)] + [x.ndim - 1]
 
     mean = jnp.mean(x, axis=reduction_axis, keepdims=True)
-    mean_of_squares = jnp.mean(jnp.square(x), axis=reduction_axis,
-                               keepdims=True)
+    mean_of_squares = jnp.mean(jnp.square(x), axis=reduction_axis, keepdims=True)
     var = mean_of_squares - jnp.square(mean)
 
     x = (x - mean) * lax.rsqrt(var + epsilon)

@@ -25,7 +25,6 @@ from jax import lax
 import jax.numpy as jnp
 import numpy as onp
 
-
 default_kernel_init = initializers.lecun_normal()
 
 
@@ -36,7 +35,6 @@ def _normalize_axes(axes, ndim):
 
 class DenseGeneral(base.Module):
   """A linear transformation with flexible axes."""
-
   def apply(self,
             inputs,
             features,
@@ -66,11 +64,11 @@ class DenseGeneral(base.Module):
     inputs = jnp.asarray(inputs, dtype)
 
     if not isinstance(features, Iterable):
-      features = (features,)
+      features = (features, )
     if not isinstance(axis, Iterable):
-      axis = (axis,)
+      axis = (axis, )
     if not isinstance(batch_dims, Iterable):
-      batch_dims = (batch_dims,)
+      batch_dims = (batch_dims, )
     features, axis, batch_dims = tuple(features), tuple(axis), tuple(batch_dims)
 
     if batch_dims:
@@ -87,10 +85,12 @@ class DenseGeneral(base.Module):
 
     def kernel_init_wrap(rng, shape, dtype=jnp.float32):
       size_batch_dims = onp.prod(shape[:n_batch_dims], dtype=onp.int32)
-      flat_shape = (onp.prod(shape[n_batch_dims:n_axis + n_batch_dims]),
-                    onp.prod(shape[-n_features:]),)
-      kernel = jnp.concatenate([kernel_init(rng, flat_shape, dtype)
-                                for _ in range(size_batch_dims)], axis=0)
+      flat_shape = (
+          onp.prod(shape[n_batch_dims:n_axis + n_batch_dims]),
+          onp.prod(shape[-n_features:]),
+      )
+      kernel = jnp.concatenate(
+          [kernel_init(rng, flat_shape, dtype) for _ in range(size_batch_dims)], axis=0)
       return jnp.reshape(kernel, shape)
 
     batch_shape = tuple([inputs.shape[ax] for ax in batch_dims])
@@ -101,22 +101,21 @@ class DenseGeneral(base.Module):
     batch_ind = tuple(range(n_batch_dims))
     contract_ind = tuple(range(n_batch_dims, n_axis + n_batch_dims))
     out = lax.dot_general(inputs,
-                          kernel,
-                          ((axis, contract_ind), (batch_dims, batch_ind)),
+                          kernel, ((axis, contract_ind), (batch_dims, batch_ind)),
                           precision=precision)
     if bias:
+
       def bias_init_wrap(rng, shape, dtype=jnp.float32):
         size_batch_dims = onp.prod(shape[:n_batch_dims], dtype=onp.int32)
-        flat_shape = (onp.prod(shape[-n_features:]),)
-        bias = jnp.concatenate([bias_init(rng, flat_shape, dtype)
-                                for _ in range(size_batch_dims)], axis=0)
+        flat_shape = (onp.prod(shape[-n_features:]), )
+        bias = jnp.concatenate([bias_init(rng, flat_shape, dtype) for _ in range(size_batch_dims)],
+                               axis=0)
         return jnp.reshape(bias, shape)
 
       bias = self.param('bias', batch_shape + features, bias_init_wrap)
 
       # Reshape bias for broadcast.
-      expand_dims = sorted(
-          set(range(inputs.ndim)) - set(axis) - set(batch_dims))
+      expand_dims = sorted(set(range(inputs.ndim)) - set(axis) - set(batch_dims))
       for ax in expand_dims:
         bias = jnp.expand_dims(bias, ax)
       bias = jnp.asarray(bias, dtype)
@@ -126,7 +125,6 @@ class DenseGeneral(base.Module):
 
 class Dense(base.Module):
   """A linear transformation applied over the last dimension of the input."""
-
   def apply(self,
             inputs,
             features,
@@ -152,11 +150,11 @@ class Dense(base.Module):
     inputs = jnp.asarray(inputs, dtype)
     kernel = self.param('kernel', (inputs.shape[-1], features), kernel_init)
     kernel = jnp.asarray(kernel, dtype)
-    y = lax.dot_general(inputs, kernel,
-                        (((inputs.ndim - 1,), (0,)), ((), ())),
+    y = lax.dot_general(inputs,
+                        kernel, (((inputs.ndim - 1, ), (0, )), ((), ())),
                         precision=precision)
     if bias:
-      bias = self.param('bias', (features,), bias_init)
+      bias = self.param('bias', (features, ), bias_init)
       bias = jnp.asarray(bias, dtype)
       y = y + bias
     return y
@@ -173,7 +171,6 @@ def _conv_dimension_numbers(input_shape):
 
 class Conv(base.Module):
   """Convolution Module wrapping lax.conv_general_dilated."""
-
   def apply(self,
             inputs,
             features,
@@ -222,7 +219,7 @@ class Conv(base.Module):
     inputs = jnp.asarray(inputs, dtype)
 
     if strides is None:
-      strides = (1,) * (inputs.ndim - 2)
+      strides = (1, ) * (inputs.ndim - 2)
 
     in_features = inputs.shape[-1]
     assert in_features % feature_group_count == 0
@@ -231,19 +228,18 @@ class Conv(base.Module):
     kernel = jnp.asarray(kernel, dtype)
 
     dimension_numbers = _conv_dimension_numbers(inputs.shape)
-    y = lax.conv_general_dilated(
-        inputs,
-        kernel,
-        strides,
-        padding,
-        lhs_dilation=input_dilation,
-        rhs_dilation=kernel_dilation,
-        dimension_numbers=dimension_numbers,
-        feature_group_count=feature_group_count,
-        precision=precision)
+    y = lax.conv_general_dilated(inputs,
+                                 kernel,
+                                 strides,
+                                 padding,
+                                 lhs_dilation=input_dilation,
+                                 rhs_dilation=kernel_dilation,
+                                 dimension_numbers=dimension_numbers,
+                                 feature_group_count=feature_group_count,
+                                 precision=precision)
 
     if bias:
-      bias = self.param('bias', (features,), bias_init)
+      bias = self.param('bias', (features, ), bias_init)
       bias = jnp.asarray(bias, dtype)
       y = y + bias
     return y
@@ -251,7 +247,6 @@ class Conv(base.Module):
 
 class ConvTranspose(base.Module):
   """Transposed convolution Module wrapping lax.conv_transpose."""
-
   def apply(self,
             inputs,
             features,
@@ -290,25 +285,28 @@ class ConvTranspose(base.Module):
       The convolved data.
     """
     inputs = jnp.asarray(inputs, dtype)
-    strides = strides or (1,) * (inputs.ndim - 2)
+    strides = strides or (1, ) * (inputs.ndim - 2)
 
     in_features = inputs.shape[-1]
     kernel_shape = kernel_size + (in_features, features)
     kernel = self.param('kernel', kernel_shape, kernel_init)
     kernel = jnp.asarray(kernel, dtype)
 
-    y = lax.conv_transpose(inputs, kernel, strides, padding,
-                           rhs_dilation=kernel_dilation, precision=precision)
+    y = lax.conv_transpose(inputs,
+                           kernel,
+                           strides,
+                           padding,
+                           rhs_dilation=kernel_dilation,
+                           precision=precision)
 
     if bias:
-      bias = self.param('bias', (features,), bias_init)
+      bias = self.param('bias', (features, ), bias_init)
       bias = jnp.asarray(bias, dtype)
       y = y + bias
     return y
 
 
-default_embed_init = initializers.variance_scaling(1.0, 'fan_in', 'normal',
-                                                   out_axis=0)
+default_embed_init = initializers.variance_scaling(1.0, 'fan_in', 'normal', out_axis=0)
 
 
 class Embed(base.Module):
@@ -316,12 +314,7 @@ class Embed(base.Module):
 
   A parameterized function from integers [0, n) to d-dimensional vectors.
   """
-
-  def apply(self,
-            inputs,
-            num_embeddings,
-            features,
-            embedding_init=default_embed_init):
+  def apply(self, inputs, num_embeddings, features, embedding_init=default_embed_init):
     """Embeds the inputs along the last dimension.
 
     Args:
@@ -336,8 +329,7 @@ class Embed(base.Module):
     """
     if inputs.dtype not in [jnp.int32, jnp.int64, jnp.uint32, jnp.uint64]:
       raise ValueError('Input type must be an integer or unsigned integer.')
-    embedding = self.param('embedding', (num_embeddings, features),
-                           embedding_init)
+    embedding = self.param('embedding', (num_embeddings, features), embedding_init)
     return embedding[inputs]
 
   @base.module_method
@@ -357,5 +349,4 @@ class Embed(base.Module):
     """
     del unused_kwargs
     embedding = self.get_param('embedding')
-    return lax.dot_general(
-        query, embedding, (((query.ndim - 1,), (1,)), ((), ())))
+    return lax.dot_general(query, embedding, (((query.ndim - 1, ), (1, )), ((), ())))

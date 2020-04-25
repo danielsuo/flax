@@ -27,7 +27,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """A utility for traversing immutable datastructures.
 
 A Traversal can be used to iterate and update complex data structures.
@@ -89,14 +88,16 @@ def flatten_dict(xs):
     The flattened dictionary.
   """
   assert isinstance(xs, dict), 'input is not a dict'
+
   def _flatten(xs, prefix):
     if not isinstance(xs, dict):
       return {prefix: xs}
     result = {}
     for key, value in xs.items():
-      path = prefix + (key,)
+      path = prefix + (key, )
       result.update(_flatten(value, path))
     return result
+
   return _flatten(xs, ())
 
 
@@ -137,7 +138,6 @@ def unflatten_dict(xs):
 
 class Traversal(object):
   """Base class for all traversals."""
-
   @abc.abstractmethod
   def update(self, fn, inputs):
     """Update the focused items.
@@ -210,19 +210,18 @@ class Traversal(object):
 
 class TraverseId(Traversal):
   """The identity Traversal."""
-
   def update(self, fn, inputs):
     return fn(inputs)
 
   def iterate(self, inputs):
     yield inputs
 
+
 t_identity = TraverseId()
 
 
 class TraverseMerge(Traversal):
   """Merges the selection from a set of traversals."""
-
   def __init__(self, *traversals):
     self._traversals = traversals
 
@@ -238,7 +237,6 @@ class TraverseMerge(Traversal):
 
 class TraverseCompose(Traversal):
   """Compose two traversals."""
-
   def __init__(self, x, y):
     self._x = x
     self._y = y
@@ -256,7 +254,6 @@ class TraverseCompose(Traversal):
 
 class TraverseFilter(Traversal):
   """Filter selected values based on a predicate."""
-
   def __init__(self, fn):
     self._fn = fn
 
@@ -277,7 +274,6 @@ def _is_namedtuple(t):
 
 class TraverseAttr(Traversal):
   """Traverse the attribute of an object."""
-
   def __init__(self, attr):
     self._attr = attr
 
@@ -298,7 +294,6 @@ class TraverseAttr(Traversal):
 
 class TraverseItem(Traversal):
   """Traverse the item of an object."""
-
   def __init__(self, key):
     self._key = key
 
@@ -311,8 +306,7 @@ class TraverseItem(Traversal):
         sl = slice(self._key, self._key + 1)
       indices = set(range(*sl.indices(len(inputs))))
 
-      args = [fn(inputs[i]) if i in indices else inputs[i]
-              for i in range(len(inputs))]
+      args = [fn(inputs[i]) if i in indices else inputs[i] for i in range(len(inputs))]
       if _is_namedtuple(ty):
         return ty(*args)
       else:
@@ -331,7 +325,6 @@ class TraverseItem(Traversal):
 
 class TraverseEach(Traversal):
   """Traverse each item of a container."""
-
   def update(self, fn, inputs):
     ty = type(inputs)
     if ty is dict:
@@ -350,7 +343,6 @@ class TraverseEach(Traversal):
 class TraverseTree(Traversal):
   """Traverse every item in a pytree.
   """
-
   def update(self, fn, inputs):
     return jax.tree_map(fn, inputs)
 

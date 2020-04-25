@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Write Summaries from JAX for use with Tensorboard.
 """
 
@@ -44,7 +43,6 @@ from tensorflow.python.summary.writer.event_file_writer import EventFileWriter  
 
 class SummaryWriter(object):
   """Saves data in event and summary protos for tensorboard."""
-
   def __init__(self, log_dir):
     """Create a new SummaryWriter.
 
@@ -103,11 +101,10 @@ class SummaryWriter(object):
       image = onp.repeat(image, 3, axis=-1)
     image_strio = io.BytesIO()
     plt.imsave(image_strio, image, vmin=0., vmax=1., format='png')
-    image_summary = Summary.Image(
-        encoded_image_string=image_strio.getvalue(),
-        colorspace=3,
-        height=image.shape[0],
-        width=image.shape[1])
+    image_summary = Summary.Image(encoded_image_string=image_strio.getvalue(),
+                                  colorspace=3,
+                                  height=image.shape[0],
+                                  width=image.shape[1])
     summary = Summary(value=[Summary.Value(tag=tag, image=image_summary)])
     self._add_summary(summary, step)
 
@@ -140,12 +137,11 @@ class SummaryWriter(object):
     wav_buf.close()
     encoded_audio_bytes = wio.getvalue()
     wio.close()
-    audio = Summary.Audio(
-        sample_rate=sample_rate,
-        num_channels=1,
-        length_frames=len(sample_list),
-        encoded_audio_string=encoded_audio_bytes,
-        content_type='audio/wav')
+    audio = Summary.Audio(sample_rate=sample_rate,
+                          num_channels=1,
+                          length_frames=len(sample_list),
+                          encoded_audio_string=encoded_audio_bytes,
+                          content_type='audio/wav')
     summary = Summary(value=[Summary.Value(tag=tag, audio=audio)])
     self._add_summary(summary, step)
 
@@ -166,22 +162,18 @@ class SummaryWriter(object):
     # boundary logic
     # TODO(flax-dev) Investigate whether this logic can be simplified.
     cum_counts = onp.cumsum(onp.greater(counts, 0, dtype=onp.int32))
-    start, end = onp.searchsorted(
-        cum_counts, [0, cum_counts[-1] - 1], side='right')
+    start, end = onp.searchsorted(cum_counts, [0, cum_counts[-1] - 1], side='right')
     start, end = int(start), int(end) + 1
-    counts = (
-        counts[start -
-               1:end] if start > 0 else onp.concatenate([[0], counts[:end]]))
+    counts = (counts[start - 1:end] if start > 0 else onp.concatenate([[0], counts[:end]]))
     limits = limits[start:end + 1]
     sum_sq = values.dot(values)
-    histo = HistogramProto(
-        min=values.min(),
-        max=values.max(),
-        num=len(values),
-        sum=values.sum(),
-        sum_squares=sum_sq,
-        bucket_limit=limits.tolist(),
-        bucket=counts.tolist())
+    histo = HistogramProto(min=values.min(),
+                           max=values.max(),
+                           num=len(values),
+                           sum=values.sum(),
+                           sum_squares=sum_sq,
+                           bucket_limit=limits.tolist(),
+                           bucket=counts.tolist())
     summary = Summary(value=[Summary.Value(tag=tag, histo=histo)])
     self._add_summary(summary, step)
 
@@ -194,24 +186,18 @@ class SummaryWriter(object):
       step: int: training step
     Note: markdown formatting is rendered by tensorboard.
     """
-    smd = SummaryMetadata(
-        plugin_data=SummaryMetadata.PluginData(plugin_name='text'))
+    smd = SummaryMetadata(plugin_data=SummaryMetadata.PluginData(plugin_name='text'))
     if isinstance(textdata, (str, bytes)):
-      tensor = tf.make_tensor_proto(
-          values=[textdata.encode(encoding='utf_8')], shape=(1,))
+      tensor = tf.make_tensor_proto(values=[textdata.encode(encoding='utf_8')], shape=(1, ))
     else:
       textdata = onp.array(textdata)  # convert lists, jax arrays, etc.
       datashape = onp.shape(textdata)
       if len(datashape) == 1:
-        tensor = tf.make_tensor_proto(
-            values=[td.encode(encoding='utf_8') for td in textdata],
-            shape=(datashape[0],))
+        tensor = tf.make_tensor_proto(values=[td.encode(encoding='utf_8') for td in textdata],
+                                      shape=(datashape[0], ))
       elif len(datashape) == 2:
         tensor = tf.make_tensor_proto(
-            values=[
-                td.encode(encoding='utf_8') for td in onp.reshape(textdata, -1)
-            ],
+            values=[td.encode(encoding='utf_8') for td in onp.reshape(textdata, -1)],
             shape=(datashape[0], datashape[1]))
-    summary = Summary(
-        value=[Summary.Value(tag=tag, metadata=smd, tensor=tensor)])
+    summary = Summary(value=[Summary.Value(tag=tag, metadata=smd, tensor=tensor)])
     self._add_summary(summary, step)

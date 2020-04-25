@@ -11,9 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for flax.traverse_util."""
-
 
 import collections
 
@@ -28,7 +26,6 @@ jax.config.parse_flags_with_absl()
 
 
 class Foo(object):
-
   def __init__(self, foo, bar=None):
     self.foo = foo
     self.bar = bar
@@ -41,7 +38,6 @@ Point = collections.namedtuple('Point', ['x', 'y'])
 
 
 class TraversalTest(absltest.TestCase):
-
   def test_traversal_id(self):
     x = 1
     traversal = traverse_util.t_identity
@@ -149,20 +145,17 @@ class TraversalTest(absltest.TestCase):
     xs = {'foo': 1, 'bar': {'a': 2, 'b': {}}}
     flat_xs = traverse_util.flatten_dict(xs)
     self.assertEqual(flat_xs, {
-      ('foo',): 1,
-      ('bar', 'a'): 2,
+        ('foo', ): 1,
+        ('bar', 'a'): 2,
     })
 
   def test_unflatten_dict(self):
     flat_xs = {
-      ('foo',): 1,
-      ('bar', 'a'): 2,
+        ('foo', ): 1,
+        ('bar', 'a'): 2,
     }
     xs = traverse_util.unflatten_dict(flat_xs)
-    self.assertEqual(xs, {
-      'foo': 1,
-      'bar': {'a': 2}
-    })
+    self.assertEqual(xs, {'foo': 1, 'bar': {'a': 2}})
 
 
 if __name__ == '__main__':

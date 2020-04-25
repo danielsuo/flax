@@ -25,7 +25,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Shake-shake and shake-drop functions."""
 
 import flax.nn
@@ -54,10 +53,16 @@ def shake_shake_train(xa, xb, rng=None):
   gate_shape = (len(xa), 1, 1, 1)
 
   # Draw different interpolation factors (gate) for forward and backward pass
-  gate_forward = jax.random.uniform(
-      gate_forward_key, gate_shape, dtype=jnp.float32, minval=0.0, maxval=1.0)
-  gate_backward = jax.random.uniform(
-      gate_backward_key, gate_shape, dtype=jnp.float32, minval=0.0, maxval=1.0)
+  gate_forward = jax.random.uniform(gate_forward_key,
+                                    gate_shape,
+                                    dtype=jnp.float32,
+                                    minval=0.0,
+                                    maxval=1.0)
+  gate_backward = jax.random.uniform(gate_backward_key,
+                                     gate_shape,
+                                     dtype=jnp.float32,
+                                     minval=0.0,
+                                     maxval=1.0)
   # Compute interpolated x for forward and backward
   x_forward = xa * gate_forward + xb * (1.0 - gate_forward)
   x_backward = xa * gate_backward + xb * (1.0 - gate_backward)
@@ -80,8 +85,7 @@ def shake_shake_eval(xa, xb):
   return (xa + xb) * 0.5
 
 
-def shake_drop_train(x, mask_prob, alpha_min, alpha_max, beta_min, beta_max,
-                     rng=None):
+def shake_drop_train(x, mask_prob, alpha_min, alpha_max, beta_min, beta_max, rng=None):
   """ShakeDrop training pass.
 
   See https://arxiv.org/abs/1802.02375
@@ -105,19 +109,20 @@ def shake_drop_train(x, mask_prob, alpha_min, alpha_max, beta_min, beta_max,
   mask = jax.random.bernoulli(bern_key, mask_prob, rnd_shape)
   mask = mask.astype(jnp.float32)
 
-  alpha_values = jax.random.uniform(
-      alpha_key,
-      rnd_shape,
-      dtype=jnp.float32,
-      minval=alpha_min,
-      maxval=alpha_max)
-  beta_values = jax.random.uniform(
-      beta_key, rnd_shape, dtype=jnp.float32, minval=beta_min, maxval=beta_max)
+  alpha_values = jax.random.uniform(alpha_key,
+                                    rnd_shape,
+                                    dtype=jnp.float32,
+                                    minval=alpha_min,
+                                    maxval=alpha_max)
+  beta_values = jax.random.uniform(beta_key,
+                                   rnd_shape,
+                                   dtype=jnp.float32,
+                                   minval=beta_min,
+                                   maxval=beta_max)
   # See Eqn 6 in https://arxiv.org/abs/1802.02375
   rand_forward = mask + alpha_values - mask * alpha_values
   rand_backward = mask + beta_values - mask * beta_values
-  x = x * rand_backward + jax.lax.stop_gradient(x * rand_forward -
-                                                x * rand_backward)
+  x = x * rand_backward + jax.lax.stop_gradient(x * rand_forward - x * rand_backward)
   return x
 
 

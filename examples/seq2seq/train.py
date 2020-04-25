@@ -31,31 +31,25 @@ import numpy as np
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_float(
-    'learning_rate',
-    default=0.003,
-    help=('The learning rate for the Adam optimizer.'))
+flags.DEFINE_float('learning_rate',
+                   default=0.003,
+                   help=('The learning rate for the Adam optimizer.'))
 
-flags.DEFINE_integer(
-    'batch_size', default=128, help=('Batch size for training.'))
+flags.DEFINE_integer('batch_size', default=128, help=('Batch size for training.'))
 
-flags.DEFINE_integer(
-    'num_train_steps', default=10000, help=('Number of train steps.'))
+flags.DEFINE_integer('num_train_steps', default=10000, help=('Number of train steps.'))
 
-flags.DEFINE_integer(
-    'decode_frequency',
-    default=200,
-    help=('Frequency of decoding during training, e.g. every 1000 steps.'))
+flags.DEFINE_integer('decode_frequency',
+                     default=200,
+                     help=('Frequency of decoding during training, e.g. every 1000 steps.'))
 
-flags.DEFINE_integer(
-    'max_len_query_digit',
-    default=3,
-    help=('Maximum length of a single input digit.'))
+flags.DEFINE_integer('max_len_query_digit',
+                     default=3,
+                     help=('Maximum length of a single input digit.'))
 
 
 class CharacterTable(object):
   """Encode/decodes between strings and integer representations."""
-
   @property
   def pad_id(self):
     return 0
@@ -70,16 +64,13 @@ class CharacterTable(object):
 
   def __init__(self, chars):
     self._chars = sorted(set(chars))
-    self._char_indices = dict(
-        (ch, idx + 2) for idx, ch in enumerate(self._chars))
-    self._indices_char = dict(
-        (idx + 2, ch) for idx, ch in enumerate(self._chars))
+    self._char_indices = dict((ch, idx + 2) for idx, ch in enumerate(self._chars))
+    self._indices_char = dict((idx + 2, ch) for idx, ch in enumerate(self._chars))
     self._indices_char[self.pad_id] = '_'
 
   def encode(self, inputs):
     """Encode from string to list of integers."""
-    return np.array(
-        [self._char_indices[char] for char in inputs] + [self.eos_id])
+    return np.array([self._char_indices[char] for char in inputs] + [self.eos_id])
 
   def decode(self, inputs):
     """Decode from list of integers to string."""
@@ -107,18 +98,16 @@ def get_max_output_len():
 
 def onehot(sequence, vocab_size):
   """One-hot encode a single sequence of integers."""
-  return jnp.array(
-      sequence[:, np.newaxis] == jnp.arange(vocab_size), dtype=jnp.float32)
+  return jnp.array(sequence[:, np.newaxis] == jnp.arange(vocab_size), dtype=jnp.float32)
 
 
 def encode_onehot(batch_inputs, max_len):
   """One-hot encode a string input."""
-
   def encode_str(s):
     tokens = CTABLE.encode(s)
     if len(tokens) > max_len:
       raise ValueError(f'Sequence too long ({len(tokens)}>{max_len}): \'{s}\'')
-    tokens = np.pad(tokens, [(0, max_len-len(tokens))], mode='constant')
+    tokens = np.pad(tokens, [(0, max_len - len(tokens))], mode='constant')
     return onehot(tokens, CTABLE.vocab_size)
 
   return np.array([encode_str(inp) for inp in batch_inputs])
@@ -145,47 +134,42 @@ def get_sequence_lengths(sequence_batch, eos_id=CTABLE.eos_id):
 
 def mask_sequences(sequence_batch, lengths):
   """Set positions beyond the length of each sequence to 0."""
-  return sequence_batch * (
-      lengths[:, np.newaxis] > np.arange(sequence_batch.shape[1]))
+  return sequence_batch * (lengths[:, np.newaxis] > np.arange(sequence_batch.shape[1]))
 
 
 class Encoder(nn.Module):
   """LSTM encoder, returning state after EOS is input."""
-
   def apply(self, inputs, eos_id=1, hidden_size=512):
     # inputs.shape = (batch_size, seq_length, vocab_size).
     batch_size = inputs.shape[0]
 
     lstm_cell = nn.LSTMCell.partial(name='lstm')
-    init_lstm_state = nn.LSTMCell.initialize_carry(
-        nn.make_rng(),
-        (batch_size,),
-        hidden_size)
+    init_lstm_state = nn.LSTMCell.initialize_carry(nn.make_rng(), (batch_size, ), hidden_size)
 
     def encode_step_fn(carry, x):
       lstm_state, is_eos = carry
       new_lstm_state, y = lstm_cell(lstm_state, x)
+
       # Pass forward the previous state if EOS has already been reached.
       def select_carried_state(new_state, old_state):
         return jnp.where(is_eos[:, np.newaxis], old_state, new_state)
+
       # LSTM state is a tuple (c, h).
-      carried_lstm_state = tuple(
-          select_carried_state(*s) for s in zip(new_lstm_state, lstm_state))
+      carried_lstm_state = tuple(select_carried_state(*s) for s in zip(new_lstm_state, lstm_state))
       # Update `is_eos`.
       is_eos = jnp.logical_or(is_eos, x[:, eos_id])
       return (carried_lstm_state, is_eos), y
 
-    (final_state, _), _ = jax_utils.scan_in_dim(
-        encode_step_fn,
-        init=(init_lstm_state, jnp.zeros(batch_size, dtype=np.bool)),
-        xs=inputs,
-        axis=1)
+    (final_state, _), _ = jax_utils.scan_in_dim(encode_step_fn,
+                                                init=(init_lstm_state,
+                                                      jnp.zeros(batch_size, dtype=np.bool)),
+                                                xs=inputs,
+                                                axis=1)
     return final_state
 
 
 class Decoder(nn.Module):
   """LSTM decoder."""
-
   def apply(self, init_state, inputs, teacher_force=False):
     # inputs.shape = (batch_size, seq_length, vocab_size).
     vocab_size = inputs.shape[2]
@@ -213,19 +197,12 @@ class Decoder(nn.Module):
 
 class Seq2seq(nn.Module):
   """Sequence-to-sequence class using encoder/decoder architecture."""
-
   def _create_modules(self, eos_id, hidden_size):
-    encoder = Encoder.partial(
-        eos_id=eos_id, hidden_size=hidden_size).shared(name='encoder')
+    encoder = Encoder.partial(eos_id=eos_id, hidden_size=hidden_size).shared(name='encoder')
     decoder = Decoder.shared(name='decoder')
     return encoder, decoder
 
-  def apply(self,
-            encoder_inputs,
-            decoder_inputs,
-            teacher_force=True,
-            eos_id=1,
-            hidden_size=512):
+  def apply(self, encoder_inputs, decoder_inputs, teacher_force=True, eos_id=1, hidden_size=512):
     """Run the seq2seq model.
 
     Args:
@@ -252,10 +229,9 @@ class Seq2seq(nn.Module):
     # Encode inputs
     init_decoder_state = encoder(encoder_inputs)
     # Decode outputs.
-    logits, predictions = decoder(
-        init_decoder_state,
-        decoder_inputs[:, :-1],
-        teacher_force=teacher_force)
+    logits, predictions = decoder(init_decoder_state,
+                                  decoder_inputs[:, :-1],
+                                  teacher_force=teacher_force)
 
     return logits, predictions
 
@@ -264,9 +240,8 @@ def create_model():
   """Creates a seq2seq model."""
   vocab_size = CTABLE.vocab_size
   _, initial_params = Seq2seq.partial(eos_id=CTABLE.eos_id).init_by_shape(
-      nn.make_rng(),
-      [((1, get_max_input_len(), vocab_size), jnp.float32),
-       ((1, get_max_output_len(), vocab_size), jnp.float32)])
+      nn.make_rng(), [((1, get_max_input_len(), vocab_size), jnp.float32),
+                      ((1, get_max_output_len(), vocab_size), jnp.float32)])
   model = nn.Model(Seq2seq, initial_params)
   return model
 
@@ -313,9 +288,7 @@ def compute_metrics(logits, labels):
   # Computes sequence accuracy, which is the same as the accuracy during
   # inference, since teacher forcing is irrelevant when all output are correct.
   token_accuracy = jnp.argmax(logits, -1) == jnp.argmax(labels, -1)
-  sequence_accuracy = (
-      jnp.sum(mask_sequences(token_accuracy, lengths), axis=-1) == lengths
-  )
+  sequence_accuracy = (jnp.sum(mask_sequences(token_accuracy, lengths), axis=-1) == lengths)
   accuracy = jnp.mean(sequence_accuracy)
   metrics = {
       'loss': loss,
@@ -335,6 +308,7 @@ def train_step(optimizer, batch, rng):
       logits, _ = model(batch['query'], batch['answer'])
     loss = cross_entropy_loss(logits, labels, get_sequence_lengths(labels))
     return loss, logits
+
   grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
   (_, logits), grad = grad_fn(optimizer.target)
   optimizer = optimizer.apply_gradient(grad)
@@ -344,8 +318,7 @@ def train_step(optimizer, batch, rng):
 
 def log_decode(question, inferred, golden):
   """Log the given question, inferred query, and correct query."""
-  suffix = '(CORRECT)' if inferred == golden else (f'(INCORRECT) '
-                                                   f'correct={golden}')
+  suffix = '(CORRECT)' if inferred == golden else (f'(INCORRECT) ' f'correct={golden}')
   logging.info('DECODE: %s = %s %s', question, inferred, suffix)
 
 
@@ -353,8 +326,7 @@ def log_decode(question, inferred, golden):
 def decode(model, inputs, rng):
   """Decode inputs."""
   init_decoder_input = onehot(CTABLE.encode('=')[0:1], CTABLE.vocab_size)
-  init_decoder_inputs = jnp.tile(init_decoder_input,
-                                 (inputs.shape[0], get_max_output_len(), 1))
+  init_decoder_inputs = jnp.tile(init_decoder_input, (inputs.shape[0], get_max_output_len(), 1))
   with nn.stochastic(rng):
     _, predictions = model(inputs, init_decoder_inputs, teacher_force=False)
   return predictions
@@ -381,8 +353,8 @@ def train_model():
       batch = get_batch(FLAGS.batch_size)
       optimizer, metrics = train_step(optimizer, batch, nn.make_rng())
       if step % FLAGS.decode_frequency == 0:
-        logging.info('train step: %d, loss: %.4f, accuracy: %.2f', step,
-                     metrics['loss'], metrics['accuracy'] * 100)
+        logging.info('train step: %d, loss: %.4f, accuracy: %.2f', step, metrics['loss'],
+                     metrics['accuracy'] * 100)
         decode_batch(optimizer.target, 5)
   return optimizer.target
 

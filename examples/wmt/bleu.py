@@ -25,7 +25,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 r"""Approximate BLEU score.
 
 MLPerf version of BLEU calculation.
@@ -62,7 +61,6 @@ import six
 
 class UnicodeRegex(object):
   """Ad-hoc hack to recognize all punctuation and symbols."""
-
   def __init__(self):
     punctuation = self.property_chars("P")
     self.nondigit_punct_re = re.compile(r"([^\d])([" + punctuation + r"])")
@@ -71,8 +69,7 @@ class UnicodeRegex(object):
 
   def property_chars(self, prefix):
     return "".join(
-        six.unichr(x)
-        for x in range(sys.maxunicode)
+        six.unichr(x) for x in range(sys.maxunicode)
         if unicodedata.category(six.unichr(x)).startswith(prefix))
 
 
@@ -127,10 +124,7 @@ def _get_ngrams(segment, max_order):
   return ngram_counts
 
 
-def compute_bleu(reference_corpus,
-                 translation_corpus,
-                 max_order=4,
-                 use_bp=True):
+def compute_bleu(reference_corpus, translation_corpus, max_order=4, use_bp=True):
   """Computes BLEU score of translated segments against one or more references.
 
   Args:
@@ -165,8 +159,7 @@ def compute_bleu(reference_corpus,
     for ngram in overlap:
       matches_by_order[len(ngram) - 1] += overlap[ngram]
     for ngram in translation_ngram_counts:
-      possible_matches_by_order[len(ngram) -
-                                1] += translation_ngram_counts[ngram]
+      possible_matches_by_order[len(ngram) - 1] += translation_ngram_counts[ngram]
   precisions = [0] * max_order
   smooth = 1.0
   for i in range(0, max_order):
@@ -202,8 +195,7 @@ def compute_bleu(reference_corpus,
 def bleu_local(ref_lines, hyp_lines, case_sensitive=False):
   """Compute BLEU for two lists of reference and hypothesis translations."""
   if len(ref_lines) != len(hyp_lines):
-    raise ValueError("Reference and translation lists have different "
-                     "numbers of lines.")
+    raise ValueError("Reference and translation lists have different " "numbers of lines.")
   if not case_sensitive:
     ref_lines = [x.lower() for x in ref_lines]
     hyp_lines = [x.lower() for x in hyp_lines]

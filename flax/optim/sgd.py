@@ -27,7 +27,6 @@ class _GradientDescentHyperParams:
 
 class GradientDescent(OptimizerDef):
   """Gradient descent optimizer."""
-
   def __init__(self, learning_rate=None):
     """Constructor for the GradientDescent optimizer.
 

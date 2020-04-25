@@ -75,37 +75,34 @@ def dot_product_attention(query,
     Output of shape `[bs, dim1, dim2, ..., dimN,, num_heads, value_channels]`.
   """
   assert key.shape[:-1] == value.shape[:-1]
-  assert (query.shape[0:1] == key.shape[0:1] and
-          query.shape[-1] == key.shape[-1])
+  assert (query.shape[0:1] == key.shape[0:1] and query.shape[-1] == key.shape[-1])
 
   if axis is None:
     axis = tuple(range(1, key.ndim - 2))
   if not isinstance(axis, Iterable):
-    axis = (axis,)
+    axis = (axis, )
   assert key.ndim == query.ndim
   assert key.ndim == value.ndim
   for ax in axis:
     if not (query.ndim >= 3 and 1 <= ax < query.ndim - 2):
-      raise ValueError('Attention axis must be between the batch '
-                       'axis and the last-two axes.')
+      raise ValueError('Attention axis must be between the batch ' 'axis and the last-two axes.')
   depth = query.shape[-1]
   n = key.ndim
   # batch_dims is  <bs, <non-attention dims>, num_heads>
-  batch_dims = tuple(onp.delete(range(n), axis + (n - 1,)))
+  batch_dims = tuple(onp.delete(range(n), axis + (n - 1, )))
   # q & k -> (bs, <non-attention dims>, num_heads, <attention dims>, channels)
-  qk_perm = batch_dims + axis + (n - 1,)
+  qk_perm = batch_dims + axis + (n - 1, )
   key = key.transpose(qk_perm)
   query = query.transpose(qk_perm)
   # v -> (bs, <non-attention dims>, num_heads, channels, <attention dims>)
-  v_perm = batch_dims + (n - 1,) + axis
+  v_perm = batch_dims + (n - 1, ) + axis
   value = value.transpose(v_perm)
 
   query = query / jnp.sqrt(depth).astype(dtype)
   batch_dims_t = tuple(range(len(batch_dims)))
-  attn_weights = lax.dot_general(
-      query,
-      key, (((n - 1,), (n - 1,)), (batch_dims_t, batch_dims_t)),
-      precision=precision)
+  attn_weights = lax.dot_general(query,
+                                 key, (((n - 1, ), (n - 1, )), (batch_dims_t, batch_dims_t)),
+                                 precision=precision)
 
   # apply attention bias: masking, droput, proximity bias, ect.
   if bias is not None:
@@ -113,9 +110,8 @@ def dot_product_attention(query,
 
   # normalize the attention weights
   norm_dims = tuple(range(attn_weights.ndim - len(axis), attn_weights.ndim))
-  attn_weights = lax.exp(
-      attn_weights -
-      jax.scipy.special.logsumexp(attn_weights, axis=norm_dims, keepdims=True))
+  attn_weights = lax.exp(attn_weights -
+                         jax.scipy.special.logsumexp(attn_weights, axis=norm_dims, keepdims=True))
   attn_weights = attn_weights.astype(dtype)
 
   # apply dropout
@@ -130,16 +126,14 @@ def dot_product_attention(query,
       keep = random.bernoulli(dropout_rng, keep_prob, dropout_shape)
     else:
       keep = random.bernoulli(dropout_rng, keep_prob, attn_weights.shape)
-    multiplier = (keep.astype(attn_weights.dtype) /
-                  jnp.asarray(keep_prob, dtype=dtype))
+    multiplier = (keep.astype(attn_weights.dtype) / jnp.asarray(keep_prob, dtype=dtype))
     attn_weights = attn_weights * multiplier
 
   # compute the new values given the attention weights
   wv_contracting_dims = (norm_dims, range(value.ndim - len(axis), value.ndim))
-  y = lax.dot_general(
-      attn_weights,
-      value, (wv_contracting_dims, (batch_dims_t, batch_dims_t)),
-      precision=precision)
+  y = lax.dot_general(attn_weights,
+                      value, (wv_contracting_dims, (batch_dims_t, batch_dims_t)),
+                      precision=precision)
 
   # back to (bs, dim1, dim2, ..., dimN, num_heads, channels)
   perm_inv = _invert_perm(qk_perm)
@@ -162,14 +156,12 @@ class _CacheEntry:
 
 
 def scan_in_dim(*args, **kwargs):
-  warnings.warn('scan_in_dim moved to flax.jax_utils',
-                DeprecationWarning)
+  warnings.warn('scan_in_dim moved to flax.jax_utils', DeprecationWarning)
   return jax_utils.scan_in_dim(*args, **kwargs)
 
 
 class Cache(base.Collection):
   """Collect intermediate activations for efficient autoregressive decoding."""
-
   def initialize_cache(self, shape):
     """Initialize the cache for the given input shape.
 
@@ -187,16 +179,15 @@ class Cache(base.Collection):
       return _CacheEntry(key=jnp.zeros(full_shape),
                          value=jnp.zeros(full_shape),
                          i=jnp.zeros((), jnp.uint32))
+
     return Cache(jax.tree_map(_init, self.state))
 
 
-jax.tree_util.register_pytree_node(
-    Cache, base.iterate_collection, base.collection_from_iterable)
+jax.tree_util.register_pytree_node(Cache, base.iterate_collection, base.collection_from_iterable)
 
 
 class MultiHeadDotProductAttention(base.Module):
   """Multi-head dot-product attention."""
-
   def apply(self,
             inputs_q,
             inputs_kv,
@@ -267,8 +258,7 @@ class MultiHeadDotProductAttention(base.Module):
       output of shape `[bs, dim1, dim2, ..., dimN, features]`.
     """
 
-    assert causal_mask or not cache, (
-        'Caching is only support for causal attention.')
+    assert causal_mask or not cache, ('Caching is only support for causal attention.')
 
     if inputs_kv is None:
       inputs_kv = inputs_q
@@ -279,21 +269,19 @@ class MultiHeadDotProductAttention(base.Module):
     features = out_features or inputs_q.shape[-1]
     qkv_features = qkv_features or inputs_q.shape[-1]
 
-    assert qkv_features % num_heads == 0, (
-        'Memory dimension must be divisible by number of heads.')
+    assert qkv_features % num_heads == 0, ('Memory dimension must be divisible by number of heads.')
     head_dim = qkv_features // num_heads
 
-    dense = DenseGeneral.partial(
-        axis=-1,
-        features=(num_heads, head_dim),
-        kernel_init=kernel_init,
-        bias_init=bias_init,
-        bias=bias,
-        precision=precision)
+    dense = DenseGeneral.partial(axis=-1,
+                                 features=(num_heads, head_dim),
+                                 kernel_init=kernel_init,
+                                 bias_init=bias_init,
+                                 bias=bias,
+                                 precision=precision)
     # project inputs_q to multi-headed q/k/v
     # dimensions are then [bs, dims..., n_heads, n_features_per_head]
-    query, key, value = (dense(inputs_q, dtype=dtype, name='query'),
-                         dense(inputs_kv, dtype=dtype, name='key'),
+    query, key, value = (dense(inputs_q, dtype=dtype,
+                               name='query'), dense(inputs_kv, dtype=dtype, name='key'),
                          dense(inputs_kv, dtype=dtype, name='value'))
 
     if cache:
@@ -308,8 +296,7 @@ class MultiHeadDotProductAttention(base.Module):
         expected_shape = tuple(expected_shape) + inputs_q.shape[-1:]
         if expected_shape != inputs_q.shape:
           raise ValueError('Invalid shape provided, '
-                           'expected shape %s instead got %s.' %
-                           (expected_shape, inputs_q.shape))
+                           'expected shape %s instead got %s.' % (expected_shape, inputs_q.shape))
 
         if not isinstance(cache_entry, _CacheEntry):
           raise ValueError('Cache is not initialized.')
@@ -326,14 +313,11 @@ class MultiHeadDotProductAttention(base.Module):
         key = lax.dynamic_update_slice(cache_entry.key, key, indices)
         value = lax.dynamic_update_slice(cache_entry.value, value, indices)
         one = jnp.array(1, jnp.uint32)
-        cache_entry = cache_entry.replace(i=cache_entry.i + one,
-                                          key=key,
-                                          value=value)
+        cache_entry = cache_entry.replace(i=cache_entry.i + one, key=key, value=value)
         cache.store(cache_entry)
 
         # TODO(levskaya): verify this is still needed in translation decoding.
-        key_padding_mask = jnp.broadcast_to(
-            (jnp.arange(cshape[1]) < cache_entry.i), cshape[:2])
+        key_padding_mask = jnp.broadcast_to((jnp.arange(cshape[1]) < cache_entry.i), cshape[:2])
         key_padding_mask = key_padding_mask.astype(jnp.float32)[..., None]
 
     # create attention masks
@@ -341,7 +325,7 @@ class MultiHeadDotProductAttention(base.Module):
 
     if causal_mask:
       if cache and not self.is_initializing():
-        bias_pre_shape = (1,) * (key.ndim - 1)
+        bias_pre_shape = (1, ) * (key.ndim - 1)
         attn_shape = tuple(onp.take(key.shape, attention_axis))
         attn_size = onp.prod(attn_shape)
         ii = jnp.arange(attn_size, dtype=jnp.uint32)
@@ -353,24 +337,22 @@ class MultiHeadDotProductAttention(base.Module):
     if padding_mask is not None:
       if key_padding_mask is None:
         key_padding_mask = padding_mask
-      padding_mask = make_padding_mask(
-          padding_mask_query=padding_mask,
-          padding_mask_key=key_padding_mask,
-          query_shape=query.shape,
-          key_shape=key.shape,
-          attention_axis=attention_axis)
+      padding_mask = make_padding_mask(padding_mask_query=padding_mask,
+                                       padding_mask_key=key_padding_mask,
+                                       query_shape=query.shape,
+                                       key_shape=key.shape,
+                                       attention_axis=attention_axis)
       mask_components.append(padding_mask)
 
     if segmentation is not None:
       if key_segmentation is None:
         key_segmentation = segmentation
-      segmentation_mask = make_padding_mask(
-          padding_mask_query=segmentation,
-          padding_mask_key=key_segmentation,
-          query_shape=query.shape,
-          key_shape=key.shape,
-          attention_axis=attention_axis,
-          segmentation_mask=True)
+      segmentation_mask = make_padding_mask(padding_mask_query=segmentation,
+                                            padding_mask_key=key_segmentation,
+                                            query_shape=query.shape,
+                                            key_shape=key.shape,
+                                            attention_axis=attention_axis,
+                                            segmentation_mask=True)
       mask_components.append(segmentation_mask)
 
     if mask_components:
@@ -379,37 +361,35 @@ class MultiHeadDotProductAttention(base.Module):
         attention_mask = jnp.logical_and(attention_mask, component)
 
       # attention mask in the form of attention bias
-      attention_bias = lax.select(
-          attention_mask > 0, jnp.full(attention_mask.shape, 0.).astype(dtype),
-          jnp.full(attention_mask.shape, -1e10).astype(dtype))
+      attention_bias = lax.select(attention_mask > 0,
+                                  jnp.full(attention_mask.shape, 0.).astype(dtype),
+                                  jnp.full(attention_mask.shape, -1e10).astype(dtype))
     else:
       attention_bias = None
 
     # apply attention
-    x = attention_fn(
-        query,
-        key,
-        value,
-        dtype=dtype,
-        axis=attention_axis,
-        bias=attention_bias,
-        precision=precision,
-        dropout_rng=dropout_rng,
-        dropout_rate=dropout_rate,
-        broadcast_dropout=broadcast_dropout,
-        deterministic=deterministic)
+    x = attention_fn(query,
+                     key,
+                     value,
+                     dtype=dtype,
+                     axis=attention_axis,
+                     bias=attention_bias,
+                     precision=precision,
+                     dropout_rng=dropout_rng,
+                     dropout_rate=dropout_rate,
+                     broadcast_dropout=broadcast_dropout,
+                     deterministic=deterministic)
 
     # back to the original inputs dimensions
-    out = DenseGeneral(
-        x,
-        features=features,
-        axis=(-2, -1),
-        kernel_init=kernel_init,
-        bias_init=bias_init,
-        bias=bias,
-        dtype=dtype,
-        precision=precision,
-        name='out')
+    out = DenseGeneral(x,
+                       features=features,
+                       axis=(-2, -1),
+                       kernel_init=kernel_init,
+                       bias_init=bias_init,
+                       bias=bias,
+                       dtype=dtype,
+                       precision=precision,
+                       name='out')
 
     return out
 
@@ -450,19 +430,17 @@ def make_padding_mask(padding_mask_query,
   assert isinstance(attention_axis, tuple)
   for ax in attention_axis:
     if not (ndim >= 3 and 1 <= ax < ndim - 2):
-      raise ValueError(
-          'Attention axis must be between the batch axis and the last-two axes.'
-      )
+      raise ValueError('Attention axis must be between the batch axis and the last-two axes.')
 
   mask_shape_final = (query_shape[0], 1)  #  batch_size, 1 (for all heads)s
   for ax in attention_axis:
-    mask_shape_final += (query_shape[ax],)
+    mask_shape_final += (query_shape[ax], )
   for ax in attention_axis:
-    mask_shape_final += (key_shape[ax],)
+    mask_shape_final += (key_shape[ax], )
 
   padding_mask_query = padding_mask_query[..., None]
   padding_mask_key = padding_mask_key[..., None]
-  perm = (0,) + tuple(onp.flip(onp.arange(padding_mask_key.ndim)))[:-1]
+  perm = (0, ) + tuple(onp.flip(onp.arange(padding_mask_key.ndim)))[:-1]
   if segmentation_mask:
     mask = jnp.equal(padding_mask_query, padding_mask_key.transpose(perm))
   else:
@@ -495,18 +473,16 @@ def _make_causal_mask(key, attention_axis=None, self_mask=False):
   assert isinstance(attention_axis, tuple)
   for ax in attention_axis:
     if not (key.ndim >= 3 and 1 <= ax < key.ndim - 2):
-      raise ValueError(
-          'Attention axis must be between the batch axis and the last-two axes.'
-      )
+      raise ValueError('Attention axis must be between the batch axis and the last-two axes.')
 
   mask_shape = tuple([1] * (key.ndim - len(attention_axis) - 1))
   mask_shape_final = mask_shape
   for _ in range(2):
     flatten_dim = 1
     for ax in attention_axis:
-      mask_shape_final += (key.shape[ax],)
+      mask_shape_final += (key.shape[ax], )
       flatten_dim *= key.shape[ax]
-    mask_shape += (flatten_dim,)
+    mask_shape += (flatten_dim, )
 
   def tri(n, m, k=0):
     # Tie in the key to avoid the mask becoming a constant.
@@ -514,9 +490,8 @@ def _make_causal_mask(key, attention_axis=None, self_mask=False):
     # with the attention ops.
     x = lax.tie_in(key, jnp.arange(n, dtype=jnp.int32))
     y = lax.tie_in(key, jnp.arange(m, dtype=jnp.int32))
-    mask = lax.ge(
-        (lax.broadcast_in_dim(x, shape=(n, m), broadcast_dimensions=(0,))) + k,
-        lax.broadcast(y, [n]))
+    mask = lax.ge((lax.broadcast_in_dim(x, shape=(n, m), broadcast_dimensions=(0, ))) + k,
+                  lax.broadcast(y, [n]))
     return mask
 
   k = -1 if self_mask else 0
